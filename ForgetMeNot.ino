@@ -10,9 +10,16 @@ byte answerState = INERT;
 
 byte centerFace = 0;
 
-//PACKET ARRANGEMENT: puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, showTime, darkTime
-uint16_t showTime[6] = {5000, 5000, 5000, 5000, 5000, 5000};
-uint16_t darkTime[6] = {2000, 2000, 2000, 2000, 2000, 2000};
+//SHOW/DARK time variables TODO: TUNE THESE
+#define MAX_SHOW_TIME 4000
+#define MIN_SHOW_TIME 1000
+#define MIN_DARK_TIME 250
+#define MAX_DARK_TIME 1500
+#define CURVE_BEGIN_LEVEL 10
+#define CURVE_END_LEVEL 45
+int showTime = MAX_SHOW_TIME;
+int darkTime = MIN_DARK_TIME;
+
 byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};
 
 byte currentPuzzleLevel = 0;
@@ -285,7 +292,19 @@ void pieceLoop() {
 
       //Ok, so this
       //puzzleTimer.set((puzzleInfo[4] + puzzleInfo[5]) * 100); //the timing within the datagram is reduced 1/100
-      puzzleTimer.set(7000);//TODO: this needs to change based on level
+      //ok, so we determine if we're within the curve area by level
+      if (puzzleInfo[4] < CURVE_BEGIN_LEVEL) {//just throw the easiest timing
+        showTime = MAX_SHOW_TIME;
+        darkTime = MIN_DARK_TIME;
+      } else if (puzzleInfo[4] > CURVE_END_LEVEL) { //just throw the hardest timing
+        showTime = MIN_SHOW_TIME;
+        darkTime = MAX_DARK_TIME;
+      } else {//actually do the mapping here
+        showTime = map(CURVE_END_LEVEL - puzzleInfo[4], CURVE_BEGIN_LEVEL, CURVE_END_LEVEL, MIN_SHOW_TIME, MAX_SHOW_TIME);//reverse maps from the beginning level (max showtime) to the max level (min showtime)
+        darkTime = map(puzzleInfo[4], CURVE_BEGIN_LEVEL, CURVE_END_LEVEL, MIN_DARK_TIME, MAX_DARK_TIME);//maps from the beginning level (min darkness) to the max level (max darkness)
+      }
+
+      puzzleTimer.set(showTime + darkTime);//TODO: this needs to change based on level
       puzzleStarted = true;
       rotationFace = centerFace;
     }
@@ -564,7 +583,7 @@ void pieceDisplay() {
     if (puzzleStarted) {
       if (puzzleTimer.isExpired()) {//show the last stage of the puzzle (forever)
         displayStage(stageTwoData);
-      } else if (puzzleTimer.getRemaining() <= 2000) { //show darkness TODO: this should change with each level like the initial setting
+      } else if (puzzleTimer.getRemaining() <= darkTime) { //show darkness
         setColor(OFF);
         setColorOnFace(dim(GREEN, 100), centerFace);
       } else {//show the first stage of the puzzle
