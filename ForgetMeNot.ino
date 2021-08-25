@@ -13,12 +13,15 @@ byte centerFace = 0;
 //SHOW/DARK time variables TODO: TUNE THESE
 #define MAX_SHOW_TIME 4000
 #define MIN_SHOW_TIME 1000
-#define MIN_DARK_TIME 250
+#define MIN_DARK_TIME 500
 #define MAX_DARK_TIME 1500
 #define CURVE_BEGIN_LEVEL 10
 #define CURVE_END_LEVEL 45
 int showTime = MAX_SHOW_TIME;
 int darkTime = MIN_DARK_TIME;
+
+//DEBUG MODE: set this define to the level you want to test (timing only, does not affect actual puzzle data)
+#define CURVE_TEST_LEVEL 20
 
 byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};
 
@@ -293,6 +296,7 @@ void pieceLoop() {
       //Ok, so this
       //puzzleTimer.set((puzzleInfo[4] + puzzleInfo[5]) * 100); //the timing within the datagram is reduced 1/100
       //ok, so we determine if we're within the curve area by level
+      //DEBUG MODE: replace the puzzleInfo[4] calls in these three ifs with CURVE_TEST_LEVEL
       if (puzzleInfo[4] < CURVE_BEGIN_LEVEL) {//just throw the easiest timing
         showTime = MAX_SHOW_TIME;
         darkTime = MIN_DARK_TIME;
