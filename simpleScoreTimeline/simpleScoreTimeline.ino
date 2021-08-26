@@ -7,7 +7,8 @@
 
 
 byte score;
-#define PIP_IN_ROUND 6
+#define PIP_IN_ROUND 18
+#define PIP_IN_PETAL 3
 #define PIP_DURATION_IN_ROUND 100
 #define PIP_DURATION_IN_SCORE 500
 uint16_t roundDuration = PIP_DURATION_IN_ROUND * PIP_IN_ROUND;
@@ -18,6 +19,8 @@ byte numberOfPips;
 uint32_t timeOfGameEnding;
 uint32_t timeSinceScoreboardBegan;
 bool bDisplayScoreboard = false;
+
+byte petalID = 0;
 
 void setup() {
 }
