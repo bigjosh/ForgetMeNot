@@ -8,7 +8,8 @@
 
 byte score;
 #define PIP_IN_ROUND 18
-#define PIP_IN_PETAL 3
+#define NUM_PETALS 6
+#define NUM_PIP_IN_PETAL (PIP_IN_ROUND / NUM_PETALS)
 #define PIP_DURATION_IN_ROUND 100
 #define PIP_DURATION_IN_SCORE 500
 uint16_t roundDuration = PIP_DURATION_IN_ROUND * PIP_IN_ROUND;
@@ -77,7 +78,7 @@ void displayScoreboard() {
   currentRound = timeSinceScoreboardBegan / roundDuration;
 
   displayBackground();
-  //displayForeground();
+  displayForeground();
 }
 
 /*
@@ -87,7 +88,7 @@ void displayBackground() {
 
   uint16_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
 
-  if (petalID == ((timeSinceRoundBegan / PIP_DURATION_IN_ROUND) / PIP_IN_PETAL) ) {
+  if (petalID == ((timeSinceRoundBegan / PIP_DURATION_IN_ROUND) / NUM_PIP_IN_PETAL) ) {
     // YIPPEE IT IS MY TIME TO DO MY DISPLAY
 
     if ( currentRound >= numberOfRounds ) {
@@ -103,7 +104,7 @@ void displayBackground() {
       }
       
       uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
-      uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * PIP_IN_PETAL);
+      uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * NUM_PIP_IN_PETAL);
       if ( timeSinceRoundBegan > ( faceTime + timeToDisplayPrevPetals ) ) {
   
         //      setColorOnFace(RED, f);
@@ -132,6 +133,9 @@ void displayForeground() {
 
   uint16_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
 
+  if (petalID == ((timeSincePipStarted / PIP_DURATION_IN_SCORE) / NUM_PIP_IN_PETAL) ) { // start display this petalID
+    // YIPPEE IT IS MY TIME TO DO MY DISPLAY
+
   byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
   
   if(currentPip >= numberOfPips) {
@@ -143,9 +147,9 @@ void displayForeground() {
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
       uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
+      uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
 
-
-      if ( timeSincePipStarted > faceTime && f <= numberOfPips) {
+      if ( timeSincePipStarted > (faceTime + timeToDisplayPrevPetals) && f <= numberOfPips) {
         // able to display pip
         // if the front pip, pulse
         if ( f == currentPip) {
@@ -161,4 +165,5 @@ void displayForeground() {
       }
     }
   }
+  } // end display this petalID
 }
