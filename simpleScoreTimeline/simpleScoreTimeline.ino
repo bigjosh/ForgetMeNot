@@ -11,8 +11,9 @@
 
 byte score;
 #define PIP_IN_ROUND 6
-#define PIP_DURATION 500
-uint16_t roundDuration = PIP_DURATION * PIP_IN_ROUND;
+#define PIP_DURATION_IN_ROUND 100
+#define PIP_DURATION_IN_SCORE 500
+uint16_t roundDuration = PIP_DURATION_IN_ROUND * PIP_IN_ROUND;
 byte currentRound;
 byte numberOfRounds;
 byte numberOfPips;
@@ -81,17 +82,17 @@ void displayBackground() {
   // display background color on face based on how much time has passed
   FOREACH_FACE(f) {
     uint16_t timeSinceRoundBegan = timeSinceScoreboard - (currentRound * roundDuration);  // time passed in this round
-    uint16_t faceTime = f * PIP_DURATION; // after this amount of time has passed, draw on this pip
+    uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
 
     if ( timeSinceRoundBegan > faceTime ) {
 
       //      setColorOnFace(RED, f);
       switch (currentRound) {
-        case 0: setColorOnFace(RED, f); break;
-        case 1: setColorOnFace(ORANGE, f); break;
-        case 2: setColorOnFace(YELLOW, f); break;
-        case 3: setColorOnFace(GREEN, f); break;
-        case 4: setColorOnFace(BLUE, f); break;
+        case 0: setColorOnFace(dim(RED,200), f); break;
+        case 1: setColorOnFace(dim(ORANGE,200), f); break;
+        case 2: setColorOnFace(dim(YELLOW,200), f); break;
+        case 3: setColorOnFace(dim(GREEN,200), f); break;
+        case 4: setColorOnFace(dim(BLUE,200), f); break;
       }
     }
   }
@@ -109,7 +110,7 @@ void displayForeground() {
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
       uint16_t timeSincePipStarted = timeSinceScoreboard - (nextRound * roundDuration);  // time passed in this round
-      uint16_t faceTime = f * PIP_DURATION; // after this amount of time has passed, draw on this pip
+      uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
       
 
       if( timeSincePipStarted > faceTime && f < numberOfPips) {
