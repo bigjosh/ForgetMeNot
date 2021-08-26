@@ -27,6 +27,7 @@ void setup() {
 void loop() {
 
   if (buttonSingleClicked()) {
+    setColor(OFF);  // clear background
     scoreboardTimer.set(DURATION);
   }
 
@@ -34,7 +35,7 @@ void loop() {
     displayScoreboard();
   }
   else {
-    setColor(OFF);
+    setColor(OFF);  // clear background
   }
 
 }
