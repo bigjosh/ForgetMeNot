@@ -48,7 +48,7 @@ void loop() {
     scoreboardTimer.set(DURATION);
   }
 
-  
+
   // Display Scoreboard for scoreboard duration
   if (!scoreboardTimer.isExpired()) {
     displayScoreboard();
@@ -64,7 +64,7 @@ void displayScoreboard() {
 
   numberOfRounds = score / PIP_IN_ROUND;
   numberOfPips = score % PIP_IN_ROUND;
-  
+
   currentRound = timeSinceScoreboard / roundDuration;
 
   timeSinceScoreboard = DURATION - scoreboardTimer.getRemaining();
@@ -73,6 +73,9 @@ void displayScoreboard() {
   displayForeground();
 }
 
+/*
+   Display the build of the rounds completed
+*/
 void displayBackground() {
 
   if ( currentRound >= numberOfRounds ) {
@@ -99,23 +102,43 @@ void displayBackground() {
 
 }
 
+/*
+   Display the final score on the current round
+*/
 void displayForeground() {
 
   //  if( currentRound == numberOfRounds ) { // DO NOT USE - this is still drawing the background, don't want to begin yet
-  
+
   byte nextRound = numberOfRounds + 1;  // since we are drawing this in our timeline after we painted the background for our current round
+
+  uint16_t timeSincePipStarted = timeSinceScoreboard - (nextRound * roundDuration);  // time passed in this round
+
+  byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
+  
+  if(currentPip >= numberOfPips) {
+    currentPip = numberOfPips;
+  }
 
   if (timeSinceScoreboard >= nextRound * roundDuration ) { // begins drawing after all backgrounds have been drawn
 
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
-      uint16_t timeSincePipStarted = timeSinceScoreboard - (nextRound * roundDuration);  // time passed in this round
       uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
-      
 
-      if( timeSincePipStarted > faceTime && f < numberOfPips) {
+
+      if ( timeSincePipStarted > faceTime && f < numberOfPips) {
         // able to display pip
-        setColorOnFace(WHITE,f);
+        // if the front pip, pulse
+        if ( f == currentPip) {
+          // go down and up once every pip duration
+          // set the brightness based on the time passed during this pip display duration
+          byte bri = sin8_C(map(timeSincePipStarted % PIP_DURATION_IN_SCORE, 0, PIP_DURATION_IN_SCORE, 0, 255)); // time passed in this current pip converted to 0-255
+          setColorOnFace(dim(WHITE, bri), f);
+        }
+        // else stay iluminated
+        else {
+          setColorOnFace(WHITE, f);
+        }
       }
     }
   }
