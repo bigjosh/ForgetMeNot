@@ -9,7 +9,7 @@
 */
 
 
-byte score = 14;
+byte score;
 #define PIP_IN_ROUND 6
 #define PIP_DURATION 500
 uint16_t roundDuration = PIP_DURATION * PIP_IN_ROUND;
@@ -26,7 +26,8 @@ void setup() {
 
 void loop() {
 
-  if (buttonSingleClicked()) {
+  if (buttonMultiClicked()) {
+    score = buttonClickCount();
     setColor(OFF);  // clear background
     scoreboardTimer.set(DURATION);
   }
