@@ -15,39 +15,46 @@ byte currentRound;
 byte numberOfRounds;
 byte numberOfPips;
 
-Timer scoreboardTimer;
-#define DURATION 20000
-uint16_t timeSinceScoreboard;
+uint32_t timeOfGameEnding;
+uint32_t timeSinceScoreboardBegan;
+bool bDisplayScoreboard = false;
 
 void setup() {
 }
 
 void loop() {
 
+  if (buttonLongPressed()) {
+    bDisplayScoreboard = false;
+  }
+
   // start a scoreboard with a score of 1
   if (buttonSingleClicked()) {
     score = 1;
     setColor(OFF);  // clear background
-    scoreboardTimer.set(DURATION);
+    timeOfGameEnding = millis();
+    bDisplayScoreboard = true;
   }
 
   // start a scoreboard with a score of 2
   if (buttonDoubleClicked()) {
     score = 2;
     setColor(OFF);  // clear background
-    scoreboardTimer.set(DURATION);
+    timeOfGameEnding = millis();
+    bDisplayScoreboard = true;
   }
 
   // start a scoreboard with a score of 3+
   if (buttonMultiClicked()) {
     score = buttonClickCount();
     setColor(OFF);  // clear background
-    scoreboardTimer.set(DURATION);
+    timeOfGameEnding = millis();
+    bDisplayScoreboard = true;
   }
 
 
   // Display Scoreboard for scoreboard duration
-  if (!scoreboardTimer.isExpired()) {
+  if (bDisplayScoreboard) {
     displayScoreboard();
   }
   else {
@@ -62,9 +69,9 @@ void displayScoreboard() {
   numberOfRounds = score / PIP_IN_ROUND;
   numberOfPips = score % PIP_IN_ROUND;
 
-  currentRound = timeSinceScoreboard / roundDuration;
+  timeSinceScoreboardBegan = millis() - timeOfGameEnding;
 
-  timeSinceScoreboard = DURATION - scoreboardTimer.getRemaining();
+  currentRound = timeSinceScoreboardBegan / roundDuration;
 
   displayBackground();
   displayForeground();
@@ -81,7 +88,7 @@ void displayBackground() {
 
   // display background color on face based on how much time has passed
   FOREACH_FACE(f) {
-    uint16_t timeSinceRoundBegan = timeSinceScoreboard - (currentRound * roundDuration);  // time passed in this round
+    uint16_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
     uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
 
     if ( timeSinceRoundBegan > faceTime ) {
@@ -108,7 +115,7 @@ void displayForeground() {
 
   byte nextRound = numberOfRounds + 1;  // since we are drawing this in our timeline after we painted the background for our current round
 
-  uint16_t timeSincePipStarted = timeSinceScoreboard - (nextRound * roundDuration);  // time passed in this round
+  uint16_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
 
   byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
   
@@ -116,7 +123,7 @@ void displayForeground() {
     currentPip = numberOfPips;
   }
 
-  if (timeSinceScoreboard >= nextRound * roundDuration ) { // begins drawing after all backgrounds have been drawn
+  if (timeSinceScoreboardBegan >= nextRound * roundDuration ) { // begins drawing after all backgrounds have been drawn
 
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
