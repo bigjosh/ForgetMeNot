@@ -66,8 +66,8 @@ void loop() {
 
 void displayScoreboard() {
 
-  numberOfRounds = score / PIP_IN_ROUND;
-  numberOfPips = score % PIP_IN_ROUND;
+  numberOfRounds = (score-1) / PIP_IN_ROUND;
+  numberOfPips = (score-1) % PIP_IN_ROUND;  // CAREFUL: 0 pips means a single pip (index of 0), 5 pips means all 6 lit (index of 5)
 
   timeSinceScoreboardBegan = millis() - timeOfGameEnding;
 
@@ -130,7 +130,7 @@ void displayForeground() {
       uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
 
 
-      if ( timeSincePipStarted > faceTime && f < numberOfPips) {
+      if ( timeSincePipStarted > faceTime && f <= numberOfPips) {
         // able to display pip
         // if the front pip, pulse
         if ( f == currentPip) {
