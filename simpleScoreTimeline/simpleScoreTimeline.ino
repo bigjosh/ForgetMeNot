@@ -1,11 +1,8 @@
 /*
-    Blinks Simulator by Move38
+    Simple Score Timeline
 
-    Find out more about this project:
-    https://github.com/Move38/Blinks-Simulator
-    Click and drag blinks to re-arrange them.
-    Click and drag in an open space to break them.
-    You can use console for debugging info
+    Click a number of times to simulate a score
+    Display the score after clicks finish
 */
 
 
