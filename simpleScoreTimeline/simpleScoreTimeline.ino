@@ -26,12 +26,29 @@ void setup() {
 
 void loop() {
 
+  // start a scoreboard with a score of 1
+  if (buttonSingleClicked()) {
+    score = 1;
+    setColor(OFF);  // clear background
+    scoreboardTimer.set(DURATION);
+  }
+
+  // start a scoreboard with a score of 2
+  if (buttonDoubleClicked()) {
+    score = 2;
+    setColor(OFF);  // clear background
+    scoreboardTimer.set(DURATION);
+  }
+
+  // start a scoreboard with a score of 3+
   if (buttonMultiClicked()) {
     score = buttonClickCount();
     setColor(OFF);  // clear background
     scoreboardTimer.set(DURATION);
   }
 
+  
+  // Display Scoreboard for scoreboard duration
   if (!scoreboardTimer.isExpired()) {
     displayScoreboard();
   }
