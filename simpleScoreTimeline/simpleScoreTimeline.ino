@@ -20,7 +20,7 @@ uint32_t timeOfGameEnding;
 uint32_t timeSinceScoreboardBegan;
 bool bDisplayScoreboard = false;
 
-byte petalID = 0;
+byte petalID = 2;
 
 void setup() {
 }
@@ -77,7 +77,7 @@ void displayScoreboard() {
   currentRound = timeSinceScoreboardBegan / roundDuration;
 
   displayBackground();
-  displayForeground();
+  //displayForeground();
 }
 
 /*
@@ -85,26 +85,38 @@ void displayScoreboard() {
 */
 void displayBackground() {
 
-  if ( currentRound >= numberOfRounds ) {
-    currentRound = numberOfRounds; // cap the rounds at the score
-  }
+  uint16_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
 
-  // display background color on face based on how much time has passed
-  FOREACH_FACE(f) {
-    uint16_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
-    uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
+  if (petalID == ((timeSinceRoundBegan / PIP_DURATION_IN_ROUND) / PIP_IN_PETAL) ) {
+    // YIPPEE IT IS MY TIME TO DO MY DISPLAY
 
-    if ( timeSinceRoundBegan > faceTime ) {
+    if ( currentRound >= numberOfRounds ) {
+      currentRound = numberOfRounds; // cap the rounds at the score
+    }
+  
+    // display background color on face based on how much time has passed
+    FOREACH_FACE(f) {
 
-      //      setColorOnFace(RED, f);
-      switch (currentRound) {
-        case 0: setColorOnFace(dim(RED,200), f); break;
-        case 1: setColorOnFace(dim(ORANGE,200), f); break;
-        case 2: setColorOnFace(dim(YELLOW,200), f); break;
-        case 3: setColorOnFace(dim(GREEN,200), f); break;
-        case 4: setColorOnFace(dim(BLUE,200), f); break;
+      // only display the 3 pips in our petal
+      if(f >= 3) {
+        continue; // for the time being, let's only display on 0,1,2
+      }
+      
+      uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
+      uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * PIP_IN_PETAL);
+      if ( timeSinceRoundBegan > ( faceTime + timeToDisplayPrevPetals ) ) {
+  
+        //      setColorOnFace(RED, f);
+        switch (currentRound) {
+          case 0: setColorOnFace(dim(RED,200), f); break;
+          case 1: setColorOnFace(dim(ORANGE,200), f); break;
+          case 2: setColorOnFace(dim(YELLOW,200), f); break;
+          case 3: setColorOnFace(dim(GREEN,200), f); break;
+          case 4: setColorOnFace(dim(BLUE,200), f); break;
+        }
       }
     }
+    
   }
 
 }
