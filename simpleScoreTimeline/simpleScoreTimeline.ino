@@ -161,9 +161,6 @@ void displayForeground() {
       uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
       uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
 
-      bool bInPetalRange = (currentPip < ((petalID + 1) * NUM_PIP_IN_PETAL)); // check to see if this pip in in our petalID's bounds
-      // a petalID of 0 has the pip bounds of (0-2), and a petalID of 1 has the pip bounds of (3-5), and a petalID of 5 has the pip bounds of (15-17)
-
       byte faceInEntireDisplay = f + (petalID * NUM_PIP_IN_PETAL);
 
       if ( timeSincePipStarted > (faceTime + timeToDisplayPrevPetals) && faceInEntireDisplay <= numberOfPips) {
@@ -177,7 +174,7 @@ void displayForeground() {
           setColorOnFace(dim(WHITE, bri), f);
         }
         // else stay iluminated
-        else if(bInPetalRange) {
+        else {
           setColorOnFace(WHITE, f);
         }
       }
