@@ -482,8 +482,8 @@ void setupDisplay() {
 
     byte bloomProgress = map(bloomTimer.getRemaining(), 0, BLOOM_TIME, 0, 255);
 
-    byte bloomHue = 255;//map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
-    byte bloomBri = 255;//map(255 - bloomProgress, 0, 255, 100, 255);
+    byte bloomHue = map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
+    byte bloomBri = map(255 - bloomProgress, 0, 255, 100, 255);
 
     setColor(makeColorHSB(bloomHue, 255, bloomBri));
     setColorOnFace(dim(WHITE, bloomBri), random(5));
