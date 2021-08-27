@@ -21,7 +21,7 @@ uint32_t timeOfGameEnding;
 uint32_t timeSinceScoreboardBegan;
 bool bDisplayScoreboard = false;
 
-byte petalID = 2;
+byte petalID = 1;
 
 void setup() {
 }
@@ -133,9 +133,6 @@ void displayForeground() {
 
   uint16_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
 
-  if (petalID == ((timeSincePipStarted / PIP_DURATION_IN_SCORE) / NUM_PIP_IN_PETAL) ) { // start display this petalID
-    // YIPPEE IT IS MY TIME TO DO MY DISPLAY
-
   byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
   
   if(currentPip >= numberOfPips) {
@@ -146,13 +143,25 @@ void displayForeground() {
 
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
+
+      // only display the 3 pips in our petal
+      if(f >= 3) {
+        continue; // for the time being, let's only display on 0,1,2
+      }
+      
       uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
       uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
 
-      if ( timeSincePipStarted > (faceTime + timeToDisplayPrevPetals) && f <= numberOfPips) {
+      bool bInPetalRange = (currentPip < ((petalID+1) * NUM_PIP_IN_PETAL)) && (currentPip >= (petalID * NUM_PIP_IN_PETAL)); // check to see if this pip in in our petalID's bounds
+      // a petalID of 0 has the pip bounds of (0-2), and a petalID of 1 has the pip bounds of (3-5), and a petalID of 5 has the pip bounds of (15-17)
+
+      byte faceInEntireDisplay = f + (petalID * NUM_PIP_IN_PETAL);
+
+      if ( timeSincePipStarted > (faceTime + timeToDisplayPrevPetals) && faceInEntireDisplay <= numberOfPips && bInPetalRange) {
         // able to display pip
+        
         // if the front pip, pulse
-        if ( f == currentPip) {
+        if ( faceInEntireDisplay == currentPip) {
           // go down and up once every pip duration
           // set the brightness based on the time passed during this pip display duration
           byte bri = sin8_C(map(timeSincePipStarted % PIP_DURATION_IN_SCORE, 0, PIP_DURATION_IN_SCORE, 0, 255)); // time passed in this current pip converted to 0-255
@@ -165,5 +174,4 @@ void displayForeground() {
       }
     }
   }
-  } // end display this petalID
 }
