@@ -500,9 +500,11 @@ void setupDisplay() {
 
       if (canBloom) {
         // do something special on the middle piece?
+        setColor(makeColorHSB(YELLOW_HUE, 255, 255));
       }
       else { // I am a petal, show the score on me
         petalID = puzzleInfo[5];
+        setColor(OFF);
         displayScoreboard();
       }
     }
@@ -544,27 +546,28 @@ void displayScoreboard() {
 
 void displayBackground() {
 
-  uint16_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
+  uint32_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
 
   // display background color on face based on how much time has passed
   FOREACH_FACE(f) {
-     byte faceOffset = (f + centerFace + 2) % 6;
-      
+    byte faceOffset = (f + centerFace + 2) % 6;
+
+    if ( f == centerFace ) { // draw face touching the center
+      if (puzzleInfo[3]) { //i was the correct answer
+        setColorOnFace(dim(GREEN, sin8_C(millis() / 4)), f); //pulse leaf
+      }
+      else {
+        setColorOnFace(GREEN, f); // show leaf
+      }
+    }
+
     // only display the 3 pips in our petal
     if (f >= 3) {
-      if ( f == centerFace ) { // draw face touching the center
-        if (puzzleInfo[3]) { //i was the correct answer
-          setColorOnFace(dim(GREEN, sin8_C(millis() / 4)), f); //pulse leaf
-        }
-        else {
-          setColorOnFace(GREEN, f); // show leaf
-        }
-      }
       continue; // for the time being, let's only display on 0,1,2
     }
 
-    uint16_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
-    uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * NUM_PIP_IN_PETAL);
+    uint32_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
+    uint32_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * NUM_PIP_IN_PETAL);
     if ( timeSinceRoundBegan > ( faceTime + timeToDisplayPrevPetals ) ) {
 
       //      setColorOnFace(RED, f);
@@ -600,7 +603,7 @@ void displayForeground() {
 
   byte nextRound = numberOfRounds + 1;  // since we are drawing this in our timeline after we painted the background for our current round
 
-  uint16_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
+  uint32_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
 
   byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
 
@@ -619,8 +622,8 @@ void displayForeground() {
         continue; // for the time being, let's only display on 0,1,2
       }
 
-      uint16_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
-      uint16_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
+      uint32_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
+      uint32_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
 
       byte faceInEntireDisplay = f + (petalID * NUM_PIP_IN_PETAL);
 
