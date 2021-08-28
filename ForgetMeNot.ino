@@ -482,8 +482,8 @@ void setupDisplay() {
 
     byte bloomProgress = map(bloomTimer.getRemaining(), 0, BLOOM_TIME, 0, 255);
 
-    byte bloomHue = map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
-    byte bloomBri = map(255 - bloomProgress, 0, 255, 100, 255);
+    byte bloomHue = YELLOW_HUE;//map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
+    byte bloomBri = 255;//map(255 - bloomProgress, 0, 255, 100, 255);
 
     setColor(makeColorHSB(bloomHue, 255, bloomBri));
     setColorOnFace(dim(WHITE, bloomBri), random(5));
@@ -548,7 +548,8 @@ void displayBackground() {
 
   // display background color on face based on how much time has passed
   FOREACH_FACE(f) {
-
+     byte faceOffset = (f + centerFace + 2) % 6;
+      
     // only display the 3 pips in our petal
     if (f >= 3) {
       if ( f == centerFace ) { // draw face touching the center
@@ -568,22 +569,22 @@ void displayBackground() {
 
       //      setColorOnFace(RED, f);
       switch (currentRound) {
-        case 0: setColorOnFace(dim(RED, 200), f); break;
-        case 1: setColorOnFace(dim(ORANGE, 200), f); break;
-        case 2: setColorOnFace(dim(YELLOW, 200), f); break;
-        case 3: setColorOnFace(dim(GREEN, 200), f); break;
-        case 4: setColorOnFace(dim(BLUE, 200), f); break;
+        case 0: setColorOnFace(dim(RED, 200), faceOffset); break;
+        case 1: setColorOnFace(dim(ORANGE, 200), faceOffset); break;
+        case 2: setColorOnFace(dim(YELLOW, 200), faceOffset); break;
+        case 3: setColorOnFace(dim(GREEN, 200), faceOffset); break;
+        case 4: setColorOnFace(dim(BLUE, 200), faceOffset); break;
       }
     }
     else {
       // display the previous round (shift the cases
       switch (currentRound) {
-        case 0: setColorOnFace(OFF, f); break;
-        case 1: setColorOnFace(dim(RED, 200), f); break;
-        case 2: setColorOnFace(dim(ORANGE, 200), f); break;
-        case 3: setColorOnFace(dim(YELLOW, 200), f); break;
-        case 4: setColorOnFace(dim(GREEN, 200), f); break;
-        case 5: setColorOnFace(dim(BLUE, 200), f); break;
+        case 0: setColorOnFace(OFF, faceOffset); break;
+        case 1: setColorOnFace(dim(RED, 200), faceOffset); break;
+        case 2: setColorOnFace(dim(ORANGE, 200), faceOffset); break;
+        case 3: setColorOnFace(dim(YELLOW, 200), faceOffset); break;
+        case 4: setColorOnFace(dim(GREEN, 200), faceOffset); break;
+        case 5: setColorOnFace(dim(BLUE, 200), faceOffset); break;
       }
     }
   }
@@ -611,6 +612,7 @@ void displayForeground() {
 
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
+      byte faceOffset = (f + centerFace + 2) % 6;
 
       // only display the 3 pips in our petal
       if (f >= 3) {
@@ -630,11 +632,11 @@ void displayForeground() {
           // go down and up once every pip duration
           // set the brightness based on the time passed during this pip display duration
           byte bri = sin8_C(map(timeSincePipStarted % PIP_DURATION_IN_SCORE, 0, PIP_DURATION_IN_SCORE, 0, 255)); // time passed in this current pip converted to 0-255
-          setColorOnFace(dim(WHITE, bri), f);
+          setColorOnFace(dim(WHITE, bri), faceOffset);
         }
         // else stay iluminated
         else {
-          setColorOnFace(WHITE, f);
+          setColorOnFace(WHITE, faceOffset);
         }
       }
     }
