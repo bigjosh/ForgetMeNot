@@ -38,6 +38,8 @@ uint32_t timeOfGameEnding;
 uint32_t timeSinceScoreboardBegan;
 
 byte petalID;
+
+#define ANSWER_REVEAL_DURATION 2000
 // ----------------------------------------
 
 
@@ -482,8 +484,11 @@ void setupDisplay() {
 
     byte bloomProgress = map(bloomTimer.getRemaining(), 0, BLOOM_TIME, 0, 255);
 
-    byte bloomHue = YELLOW_HUE;//map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
-    byte bloomBri = 255;//map(255 - bloomProgress, 0, 255, 100, 255);
+//    byte bloomHue = map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
+//    byte bloomBri = map(255 - bloomProgress, 0, 255, 100, 255);
+
+    byte bloomHue = YELLOW_HUE;
+    byte bloomBri = 255;
 
     setColor(makeColorHSB(bloomHue, 255, bloomBri));
     setColorOnFace(dim(WHITE, bloomBri), random(5));
@@ -528,16 +533,36 @@ void displayScoreboard() {
   numberOfRounds = (currentPuzzleLevel) / PIP_IN_ROUND;
   numberOfPips = (currentPuzzleLevel) % PIP_IN_ROUND; // CAREFUL: 0 pips means a single pip (index of 0), 5 pips means all 6 lit (index of 5)
 
-  timeSinceScoreboardBegan = millis() - timeOfGameEnding;
+  //TODO: Show the correct answer, then reveal the scoreboard
+  // Show Red on all faces, green on the correct one... and fade down
 
-  currentRound = timeSinceScoreboardBegan / roundDuration;
+  //
+  uint32_t timeSinceGameEnded = millis() - timeOfGameEnding;
 
-  if ( currentRound >= numberOfRounds ) {
-    currentRound = numberOfRounds; // cap the rounds at the score
+  if (timeSinceGameEnded < ANSWER_REVEAL_DURATION) {
+    // display the correct piece and fade out to reveal the gameboard
+    byte bri = 255 - (255 * timeSinceGameEnded / ANSWER_REVEAL_DURATION);
+    if (puzzleInfo[3]) { // i was the correct answer
+      setColor(dim(GREEN, bri));  // show Green for correct
+    }
+    else {
+      setColor(dim(RED, bri)); // show Red for wrong
+    }
   }
+  else {
+    timeSinceScoreboardBegan = millis() - (timeOfGameEnding + ANSWER_REVEAL_DURATION);
 
-  displayBackground();
-  displayForeground();
+    //timeSinceScoreboardBegan = millis() - timeOfGameEnding;
+
+    currentRound = timeSinceScoreboardBegan / roundDuration;
+
+    if ( currentRound >= numberOfRounds ) {
+      currentRound = numberOfRounds; // cap the rounds at the score
+    }
+
+    displayBackground();
+    displayForeground();
+  }
 }
 
 /*
