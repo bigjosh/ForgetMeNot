@@ -90,6 +90,8 @@ enum comms {
   PUZZLE_WIN
 };
 
+byte faceComms[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
+
 #define RESET_TIMEOUT 250
 Timer resetTimer;
 
@@ -118,6 +120,11 @@ void loop() {
       break;
   }
 
+  // communication
+  FOREACH_FACE(f) {
+    setValueSentOnFace(faceComms[f], f);
+  }
+
   // dump button presses
   buttonSingleClicked();
   buttonLongPressed();
@@ -132,7 +139,7 @@ void centerLoop() {
   // basic reset from the center
   if (buttonLongPressed()) {
     // reset petals
-    setValueSentOnAllFaces(USER_RESET);
+    setAllFaces(USER_RESET);
     resetTimer.set(RESET_TIMEOUT);
   }
 
@@ -170,7 +177,7 @@ void centerLoop() {
     // check to see if we still need to send the puzzle
     if (didAllPetalReceivePuzzle()) {
       bSendPuzzle = false;
-      setValueSentOnAllFaces(PUZZLE_START);
+      setAllFaces(PUZZLE_START);
       puzzleTimer.set(getPuzzleDuration(currentLevel));
     }
 
@@ -182,7 +189,7 @@ void centerLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
       byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
       if (neighborVal == PUZZLE_START_RECEIVED) { // received the start
-        setValueSentOnFace(INERT, f);
+        faceComms[f] = INERT;
       }
     }
   }
@@ -223,7 +230,7 @@ void centerLoop() {
           else {
             // let others know we lost
             puzzleState = LOSE;
-            setValueSentOnAllFaces(PUZZLE_END);
+            setAllFaces(PUZZLE_END);
           }
         }
       }
@@ -268,8 +275,8 @@ void centerDisplay() {
 
   // Show missing pieces from center
   FOREACH_FACE(f) {
-    if(isValueReceivedOnFaceExpired(f)) {
-      setColorOnFace(dim(RED, sin8_C(millis()/3)), f);
+    if (isValueReceivedOnFaceExpired(f)) {
+      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
     }
   }
 }
@@ -309,7 +316,7 @@ void petalLoop() {
 
         markDatagramReadOnFace(centerFace);
 
-        setValueSentOnFace(PUZZLE_RECEIVED, centerFace);
+        faceComms[centerFace] = PUZZLE_RECEIVED;
 
         // Parse the data
         currentLevel = puzzleInfo[4]; // set our current puzzle level
@@ -323,13 +330,13 @@ void petalLoop() {
     if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_START ) {
       if (puzzleTimer.isExpired()) {
         puzzleTimer.set(getPuzzleDuration(currentLevel));
-        setValueSentOnFace(PUZZLE_START_RECEIVED, centerFace);
+        faceComms[centerFace] = PUZZLE_START_RECEIVED;
       }
     }
 
     if ( getLastValueReceivedOnFace(centerFace) == USER_RESET ) {
       reset();
-      setValueSentOnFace( USER_RESET_RECEIVED, centerFace);
+      faceComms[centerFace] = USER_RESET_RECEIVED;
     }
 
     if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_END ) {
@@ -362,7 +369,7 @@ void petalLoop() {
       // listen for user input from a petal
       if (buttonSingleClicked()) {
         // am I correct or incorrect?
-        setValueSentOnFace( USER_SELECT, centerFace);
+        faceComms[centerFace] = USER_SELECT;
 
         if (puzzleInfo[3]) {
           puzzleState = CORRECT;
@@ -414,7 +421,7 @@ void petalDisplay() {
     setColor(YELLOW); // show we are possible center pieces
   }
 
-  if(centerFace != FACE_COUNT) {
+  if (centerFace != FACE_COUNT) {
     setColorOnFace(OFF, centerFace);  //show center with off
   }
 
@@ -576,6 +583,15 @@ byte getCenterFace() {
 }
 
 /*
+   All Face Comms
+*/
+void setAllFaces(byte val) {
+  FOREACH_FACE(f) {
+    faceComms[f] = val;
+  }
+}
+
+/*
   Initialize variables to reset the Blink... just like when we boot up :)
 */
 void reset() {
@@ -583,6 +599,6 @@ void reset() {
   currentLevel  = 0;
   puzzleTimer.set(0);
   puzzleState = WAIT;
-  setValueSentOnAllFaces(INERT);
+  setAllFaces(INERT);
   resetTimer.never();
 }
