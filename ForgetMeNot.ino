@@ -1,5 +1,14 @@
+/*
+   Forget-me-not
+
+   by Jeph Stahl
+   Additional Development by Move38
+
+*/
+
 enum gameStates {SETUP, CENTER, SENDING, WAITING, PLAYING_PUZZLE, PLAYING_PIECE, ERR};
 byte gameState = SETUP;
+
 bool firstPuzzle = false;
 
 enum answerStates {INERT, CORRECT, WRONG, RESOLVE, VICTORY};
@@ -7,13 +16,10 @@ byte answerState = INERT;
 
 byte centerFace = 0;
 
-//PACKET ARRANGEMENT: puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, showTime, darkTime
-uint16_t showTime[6] = {5000, 5000, 5000, 5000, 5000, 5000};
-uint16_t darkTime[6] = {2000, 2000, 2000, 2000, 2000, 2000};
-byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};
+byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};  // TODO: is there a reason this isn's just the PuzzleInfo?
 
-byte currentPuzzleLevel = 0;
 #define MAX_LEVEL 59
+byte currentPuzzleLevel = 0;
 Timer puzzleTimer;
 bool puzzleStarted = false;
 Timer answerTimer;
@@ -43,26 +49,18 @@ byte petalID;
 // ----------------------------------------
 
 
+// Puzzle Levels
 byte puzzleArray[60] =     {0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 2, 2, 1, 0, 2, 3, 3, 2, 0, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
 byte difficultyArray[60] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 3, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 
-//byte petalHues[4] = {131, 159, 180, 223};//light blue, dark blue, violet, pink
+#define COLOR_1 makeColorHSB(220,200,255)  // LIGHTPINK
+#define COLOR_2 makeColorHSB(255,200,255)  // SALMON
+#define COLOR_3 makeColorHSB(220,200,255)  // PINK
+#define COLOR_4 makeColorHSB(180,200,255)  // MAUVE
+#define COLOR_5 makeColorHSB(150,200,255)  // INDIGO
+#define COLOR_6 makeColorHSB(120, 50,255)  // PERIWINKLE
 
-//#define LIGHTPINK makeColorRGB(255,200,255)
-//#define SALMON makeColorRGB(255,50,0)
-//#define PINK makeColorRGB(255,0,255)
-//#define MAUVE makeColorRGB(150,50,255)
-//#define INDIGO makeColorRGB(50,100,255)
-//#define PERIWINKLE makeColorRGB(0,150,255)
-
-#define LIGHTPINK  makeColorHSB(220,200,255)
-#define SALMON     makeColorHSB(255,200,255)
-#define PINK       makeColorHSB(220,200,255)
-#define MAUVE      makeColorHSB(180,200,255)
-#define INDIGO     makeColorHSB(150,200,255)
-#define PERIWINKLE makeColorHSB(120, 50,255)
-
-Color primaryColors[6] = {LIGHTPINK, SALMON, PINK, MAUVE, INDIGO, PERIWINKLE};
+Color petalColors[6] = {COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5, COLOR_6};
 
 byte rotationBri[6] = {0, 0, 0, 0, 0, 0};
 byte rotationFace = 0;
@@ -75,26 +73,35 @@ Timer bloomTimer;
 #define GREEN_HUE 77
 #define YELLOW_HUE 42
 
-//Puzzle levels
-// byte puzzleInfo[6] = {puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, puzzleLevel, petalID};
+/*
+  Puzzle Info
+  ---------------
+  0: type
+  1: palette
+  2: difficulty
+  3: isAnswer
+  4: level
+  5: petalID
+*/
 
-// COLOR_PETALS:  color changes on one of the petals
-// LOCATION_PETALS:  one side on each petal is lit, and changes position
-// animationPetlas: a basic animation clockwise or counterclockwise on each petal... one changes
-// globalPetals: a
-enum puzzleType {COLOR_PETALS, LOCATION_PETALS, DUO_PETALS, ROTATION_PETALS};
-
-enum puzzlePallette  {primary, pink, blue};
-
-// beginner: pick from two colours
-// easy: pick from three colours
-// medium: pick from four colours
-// hard: pick from five colours
-// extrahard: pick from 6 colours --- probably not
-enum puzzleDifficulty {beginner, easy, medium, hard, extrahard};
+enum puzzleType {
+  COLOR_PETALS,       // Each petal is a single color
+  LOCATION_PETALS,    // Each petal is lit a single direction
+  DUO_PETALS,         // Each petal is a pair of colors
+  ROTATION_PETALS     // Each petal animates rotation CW or CCW
+};
 
 
+Timer datagramTimer;
+#define DATAGRAM_TIMEOUT 250
+byte puzzleInfo[6] = {0, 0, 0, 0, 0, 0};
+byte stageOneData = 0;
+byte stageTwoData = 0;
+byte answerFace = 0;
 
+
+Timer slowTimer;
+#define FRAME_DELAY 10
 
 void setup() {
   // put your setup code here, to run once:
@@ -102,36 +109,41 @@ void setup() {
 }
 
 void loop() {
-  switch (gameState) {
-    case SETUP:
-      setupLoop();
-      setupDisplay();
-      break;
-    case CENTER:
-    case SENDING:
-    case PLAYING_PUZZLE:
-      centerLoop();
-      centerDisplay();
-      break;
-    case WAITING:
-    case PLAYING_PIECE:
-      pieceLoop();
-      pieceDisplay();
-      break;
-    case ERR:
-      break;
-  }
 
-  answerLoop();
+//  if (slowTimer.isExpired()) {
+//    slowTimer.set(FRAME_DELAY);
 
-  //do communication
-  byte sendData = (gameState << 3) | (answerState);
-  setValueSentOnAllFaces(sendData);
+    switch (gameState) {
+      case SETUP:
+        setupLoop();
+        setupDisplay();
+        break;
+      case CENTER:
+      case SENDING:
+      case PLAYING_PUZZLE:
+        centerLoop();
+        centerDisplay();
+        break;
+      case WAITING:
+      case PLAYING_PIECE:
+        pieceLoop();
+        pieceDisplay();
+        break;
+      case ERR:
+        break;
+    }
 
-  //dump button presses
-  buttonSingleClicked();
-  buttonDoubleClicked();
-  buttonMultiClicked();
+    answerLoop();
+
+    //do communication
+    byte sendData = (gameState << 3) | (answerState);
+    setValueSentOnAllFaces(sendData);
+
+    //dump button presses
+    buttonSingleClicked();
+    buttonDoubleClicked();
+    buttonMultiClicked();
+//  }
 }
 
 void setupLoop() {
@@ -152,8 +164,8 @@ void setupLoop() {
   } else {
     if (canBloom == false) {
       bloomTimer.set(BLOOM_TIME);
+      canBloom = true;
     }
-    canBloom = true;
   }
 
   if (canBloom) {
@@ -171,12 +183,6 @@ void setupLoop() {
   }
 }
 
-Timer datagramTimer;
-#define DATAGRAM_TIMEOUT 250
-byte puzzleInfo[6] = {0, 0, 0, 0, 0, 0};
-byte stageOneData = 0;
-byte stageTwoData = 0;
-byte answerFace = 0;
 
 void centerLoop() {
   if (gameState == CENTER) {
@@ -233,7 +239,7 @@ void centerLoop() {
     //TURN THIS BACK ON TO GET THE DOUBLE-CLICK CHEAT
     //    if (buttonDoubleClicked()) {//here we reveal the correct answer and move forward
     //      answerState = CORRECT;
-    //      answerTimer.set(2000);   //set answer timer for display
+    //      answerTimer.set(ANSWER_REVEAL_DURATION);   //set answer timer for display
     //      gameState = CENTER;
     //    }
 
@@ -264,7 +270,6 @@ void generatePuzzle() {
   puzzlePacket[5] = 0;//this changes when I send it, default to 0 is fine
 
   answerFace = random(5);//which face will have the correct answer?
-  //answerFace = 0;//DEBUG MODE - ALWAYS THE SAME ANSWER FACE
 
   FOREACH_FACE(f) {
     //update puzzlePacket[5] to reflect the current face
@@ -282,31 +287,31 @@ void generatePuzzle() {
 void pieceLoop() {
   if (gameState == WAITING) {//check for datagrams, then go into playing
     //listen for a packet on master face
-    bool datagramReceived = false;
     puzzleStarted = false;
 
     if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
+
       if (getDatagramLengthOnFace(centerFace) == 6) {//is it the right length?
+
         byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
-        markDatagramReadOnFace(centerFace);
-        FOREACH_FACE(f) {
-          puzzleInfo[f] = data[f];
+
+        for (byte i = 0; i < 6; i++) {
+          puzzleInfo[i] = data[i];
         }
 
-        datagramReceived = true;
+        markDatagramReadOnFace(centerFace);
+
+        gameState = PLAYING_PIECE;
+
+        // Parse the data
+        currentPuzzleLevel = puzzleInfo[4]; // set our current puzzle level
+        // create puzzle state for stage one and stage two
+        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
+        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
       }
     }
 
 
-    if (datagramReceived) {
-      gameState = PLAYING_PIECE;
-      // set our current puzzle level
-      currentPuzzleLevel = puzzleInfo[4];
-      //quickly do some figuring out based on puzzle figuring
-      stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
-      stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
-      puzzleStarted = false;
-    }
   } else if (gameState == PLAYING_PIECE) {//I guess just listen for clicks and signals?
 
     //start the puzzle if the center wants me to start
@@ -319,13 +324,17 @@ void pieceLoop() {
       puzzleStarted = true;
       rotationFace = centerFace;
     }
-
-    if (buttonSingleClicked()) {
+    
+    bool isAllowedToAnswer = puzzleTimer.isExpired(); 
+    
+    if (buttonSingleClicked() && isAllowedToAnswer) {
       //is this right or wrong?
-      bool isCorrect = (puzzleInfo[3] != 0);
+      bool isCorrect = puzzleInfo[3];
 
       if (isCorrect) {
         answerState = CORRECT;
+        answerTimer.set(ANSWER_REVEAL_DURATION);   //set answer timer for display
+        gameState = WAITING;
 
         //if you are at MAX_LEVEL, you should go into a special kind of correct - VICTORY
         if (puzzleInfo[4] == MAX_LEVEL) {
@@ -334,11 +343,10 @@ void pieceLoop() {
 
       } else {
         answerState = WRONG;
+        gameState = SETUP;  // return to setup after wrong
         isScoreboard = true;
         timeOfGameEnding = millis();
       }
-      answerTimer.set(2000);   //set answer timer for display
-      gameState = WAITING;
     }
   }
 
@@ -382,6 +390,11 @@ byte determineStages(byte puzzType, byte puzzDiff, byte amAnswer, byte stage) {
           return (0);
         }
       } else {//all other puzzles, just decide how far to rotate in the spectrum
+        /*
+           NOTE: difficulty distance should be thought of from the midpoint
+           i.e. the easiest difference in color will be 180º away in the spectrum
+           and the easiest difference in direction will be 180º opposite
+        */
         byte distance = 5 - puzzDiff;
         bool goRight = random(1);
         if (goRight) {
@@ -439,8 +452,6 @@ void answerLoop() {
       gameState = SETUP;
     }
 
-
-
     bool canResolve = true;
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
@@ -454,7 +465,9 @@ void answerLoop() {
     if (canResolve) {
       answerState = RESOLVE;
     }
-  } else if (answerState == RESOLVE) {//wait to go to INERT
+  } 
+  
+  else if (answerState == RESOLVE) {//wait to go to INERT
 
     if (answerState == CORRECT) {
       if (gameState == PLAYING_PIECE) {
@@ -491,8 +504,8 @@ void setupDisplay() {
 
     byte bloomProgress = map(bloomTimer.getRemaining(), 0, BLOOM_TIME, 0, 255);
 
-//    byte bloomHue = map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
-//    byte bloomBri = map(255 - bloomProgress, 0, 255, 100, 255);
+    //    byte bloomHue = map(bloomProgress, 0, 255, YELLOW_HUE, GREEN_HUE);
+    //    byte bloomBri = map(255 - bloomProgress, 0, 255, 100, 255);
 
     byte bloomHue = YELLOW_HUE;
     byte bloomBri = 255;
@@ -520,17 +533,6 @@ void setupDisplay() {
         displayScoreboard();
       }
     }
-
-    //    FOREACH_FACE(f) {
-    //      if (f >= puzzleInfo[5]) {  // show the id of the petal
-    //        if (puzzleInfo[3]) { // this petal is the answer
-    //          setColorOnFace(ORANGE, f);
-    //        }
-    //        else {
-    //          setColorOnFace(MAGENTA, f);
-    //        }
-    //      }
-    //    }
   }
 }
 
@@ -540,10 +542,6 @@ void displayScoreboard() {
   numberOfRounds = (currentPuzzleLevel) / PIP_IN_ROUND;
   numberOfPips = (currentPuzzleLevel) % PIP_IN_ROUND; // CAREFUL: 0 pips means a single pip (index of 0), 5 pips means all 6 lit (index of 5)
 
-  //TODO: Show the correct answer, then reveal the scoreboard
-  // Show Red on all faces, green on the correct one... and fade down
-
-  //
   uint32_t timeSinceGameEnded = millis() - timeOfGameEnding;
 
   if (timeSinceGameEnded < ANSWER_REVEAL_DURATION) {
@@ -558,8 +556,6 @@ void displayScoreboard() {
   }
   else {
     timeSinceScoreboardBegan = millis() - (timeOfGameEnding + ANSWER_REVEAL_DURATION);
-
-    //timeSinceScoreboardBegan = millis() - timeOfGameEnding;
 
     currentRound = timeSinceScoreboardBegan / roundDuration;
 
@@ -684,25 +680,25 @@ void centerDisplay() {
   //so we need some temp graphics
   switch (gameState) {
     case CENTER:
-      if (!answerTimer.isExpired()) {
-        if (answerState == CORRECT) {
-          setColor(GREEN);
-        } else if (answerState == WRONG) {
-          setColor(RED);
+      {
+        if (!answerTimer.isExpired()) {
+          if (answerState == CORRECT) {
+            setColor(GREEN);
+          } else if (answerState == WRONG) {
+            setColor(RED);
+          }
         }
-      } else {
-        setColor(YELLOW);
-        setColorOnFace(WHITE, random(5));
+        else {
+          setColor(YELLOW);
+          setColorOnFace(WHITE, random(5));
+        }
       }
-
-      //      //TEMP SCORE DISPLAY
-      //      setColorOnFace(BLUE, currentPuzzleLevel % 6);
       break;
     case SENDING:
-      setColor(YELLOW);
+      setColor(YELLOW); // CHANGE FOR DEBUG
       break;
     case PLAYING_PUZZLE:
-      setColor(YELLOW);
+      setColor(YELLOW); // CHANGE FOR DEBUG
       //setColorOnFace(WHITE, answerFace);//DEBUG MODE - INDICATING ANSWER
       break;
   }
@@ -712,56 +708,64 @@ void centerDisplay() {
 
 void pieceDisplay() {
 
-  //  switch (gameState) {
-  //    case WAITING:
-  //      setColor(YELLOW);
-  //      break;
-  //    case PLAYING_PIECE:
-  //      setColor(GREEN);
-  //      break;
-  //    default:
-  //      break;
-  //  }
-  //
-  //  if (puzzleStarted) {
-  //    setColorOnFace(WHITE, centerFace);
-  //  } else {
-  //    setColorOnFace(RED, centerFace);
-  //  }
-
-  if (gameState == WAITING) {//just waiting
-
-    //setColor(OFF);
-    //setColorOnFace(GREEN, centerFace);
-    if (!answerTimer.isExpired()) {
-      if (answerState == CORRECT) {
-        setColor(GREEN);
-      } else if (answerState == WRONG) {
-        setColor(RED);
+    if (gameState == WAITING) {//just waiting
+  
+      //setColor(OFF);
+      //setColorOnFace(GREEN, centerFace);
+      if (!answerTimer.isExpired()) {
+        if (answerState == CORRECT) {
+          setColor(GREEN);
+        } else if (answerState == WRONG) {
+          setColor(RED);
+        }
+      } else {
+        setColor(OFF);
+        setColorOnFace(GREEN, centerFace);
       }
-    } else {
-      setColor(OFF);
-      setColorOnFace(GREEN, centerFace);
-    }
-
-
-  } else {//show the puzzle
-    if (puzzleStarted) {
-      if (puzzleTimer.isExpired()) {//show the last stage of the puzzle (forever)
-        displayStage(stageTwoData);
-      } else if (puzzleTimer.getRemaining() <= 2000) { //show darkness TODO: this should change with each level like the initial setting
+  
+  
+    } else {//show the puzzle
+      if (puzzleStarted) {
+        if (puzzleTimer.isExpired()) {//show the last stage of the puzzle (forever)
+          displayStage(stageTwoData);
+        } else if (puzzleTimer.getRemaining() <= 2000) { //show darkness TODO: this should change with each level like the initial setting
+          setColor(OFF);
+          setColorOnFace(dim(GREEN, 100), centerFace);
+        } else {//show the first stage of the puzzle
+          displayStage(stageOneData);
+        }
+      } else {
         setColor(OFF);
         setColorOnFace(dim(GREEN, 100), centerFace);
-      } else {//show the first stage of the puzzle
-        displayStage(stageOneData);
       }
-    } else {
-      setColor(OFF);
-      setColorOnFace(dim(GREEN, 100), centerFace);
     }
-  }
 
-  //temp answer display
+  /*
+     DEBUG GRAPHICS
+     ------------------------
+  */
+//  switch (gameState) {
+//    case WAITING:
+//      setColor(YELLOW);
+//      break;
+//    case PLAYING_PIECE:
+//      setColor(GREEN);
+//      break;
+//    default:
+//      break;
+//  }
+//
+//  if (puzzleStarted) {
+//    setColorOnFace(WHITE, centerFace);
+//  } else {
+//    setColorOnFace(RED, centerFace);
+//  }
+  /* ------------------------ */
+
+  /*
+     DEBUG ANSWER GRAPHICS
+     ------------------------
+  */
   //  byte oppFace = (centerFace + 3) % 6;
   //  switch (answerState) {
   //    case INERT:
@@ -784,7 +788,7 @@ void displayStage( byte stageData ) {
   //puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, showTime, darkTime
   switch (puzzleInfo[0]) {
     case COLOR_PETALS:
-      setColor(primaryColors[stageData]);
+      setColor(petalColors[stageData]);
       break;
     case LOCATION_PETALS://dark, with a single lit face
       setColor(OFF);
@@ -793,12 +797,12 @@ void displayStage( byte stageData ) {
     case DUO_PETALS:
       {
         byte interiorColor = (stageData / 10);
-        setColor(primaryColors[interiorColor]);//setting the interior color
+        setColor(petalColors[interiorColor]);//setting the interior color
 
         byte exteriorColor = (stageData % 10);
-        setColorOnFace(primaryColors[exteriorColor], (centerFace + 2) % 6);
-        setColorOnFace(primaryColors[exteriorColor], (centerFace + 3) % 6);
-        setColorOnFace(primaryColors[exteriorColor], (centerFace + 4) % 6);
+        setColorOnFace(petalColors[exteriorColor], (centerFace + 2) % 6);
+        setColorOnFace(petalColors[exteriorColor], (centerFace + 3) % 6);
+        setColorOnFace(petalColors[exteriorColor], (centerFace + 4) % 6);
       }
       break;
     case ROTATION_PETALS:
