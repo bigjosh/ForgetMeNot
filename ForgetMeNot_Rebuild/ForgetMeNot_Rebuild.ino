@@ -14,6 +14,16 @@ enum pieceTypes {
 byte pieceType = PETAL; // default to PETAL
 bool bPossibleCenter = false;
 
+enum gameStates {
+  SETUP,
+  GAMEPLAY,
+  ANSWER,
+  SCOREBOARD,
+  RESET
+};
+
+byte gameState = SETUP;
+
 enum puzzleStates {
   SHOW,
   HIDE,
@@ -115,18 +125,44 @@ void loop() {
   if (slowTimer.isExpired()) {
     slowTimer.set(FRAME_DURATION);
 
-    switch (pieceType) {
+    switch (gameState) {
 
-      case CENTER:
-        centerLoop();
-        centerDisplay();
+      case SETUP:
+        setupLoop();
         break;
-
-      case PETAL:
-        petalLoop();
-        petalDisplay();
+      case GAMEPLAY:
+        gameplayLoop();
         break;
+      case ANSWER:
+        answerLoop();
+        break;
+      case SCOREBOARD:
+        scoreboardLoop();
+        break;
+      case RESET:
+        resetLoop();
+        break;
+      default:
+        break;
+    }
 
+    // DEBUG Display
+    switch (gameState) {
+      case SETUP:
+        setColor(BLUE);
+        break;
+      case GAMEPLAY:
+        setColor(WHITE);
+        break;
+      case ANSWER:
+        setColor(GREEN);
+        break;
+      case SCOREBOARD:
+        setColor(MAGENTA);
+        break;
+      case RESET:
+        setColor(RED);
+        break;
       default:
         break;
     }
@@ -144,93 +180,117 @@ void loop() {
 
 
 /*
-   Center update loop
+   Setup Loop
 */
-void centerLoop() {
+void setupLoop() {
+  if ( pieceType == CENTER ) {
+    // listen for click to send puzzle
+    // listen for all received puzzle
+    // create a puzzle
+    // and share that puzzle
+    if (bSendPuzzle && !datagramTimer.isExpired()) {
 
-  // basic reset from the center
-  if (buttonLongPressed()) {
-    // reset petals
-    setAllFaces(USER_RESET);
-    resetTimer.set(RESET_TIMEOUT);
-  }
+      FOREACH_FACE(f) {
 
-  if (resetTimer.isExpired()) {
-    reset();
-  }
+        if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
 
-  // create a puzzle
-  // and share that puzzle
-  if (bSendPuzzle && !datagramTimer.isExpired()) {
+          byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
 
-    FOREACH_FACE(f) {
+          if (neighborVal != PUZZLE_RECEIVED) { // not yet received the datagram
 
-      if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
+            faceComms[f] = PUZZLE_AVAIL;
 
-        byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
+            // send the datagram
+            puzzleInfo[5] = f;  // communicate which face this is
 
-        if (neighborVal != PUZZLE_RECEIVED) { // not yet received the datagram
+            if (f == answerFace) {
+              puzzleInfo[3] = 1;
+              sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
+            } else {
+              puzzleInfo[3] = 0;
+              sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
+            }
 
-          faceComms[f] = PUZZLE_AVAIL;
-
-          // send the datagram
-          puzzleInfo[5] = f;  // communicate which face this is
-
-          if (f == answerFace) {
-            puzzleInfo[3] = 1;
-            sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
-          } else {
-            puzzleInfo[3] = 0;
-            sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
           }
+        }
+      }
 
+      // check to see if we still need to send the puzzle
+      if (didAllPetalReceivePuzzle()) {
+        bSendPuzzle = false;
+        setAllFaces(PUZZLE_START);
+        puzzleTimer.set(getPuzzleDuration(currentLevel));
+        gameState = GAMEPLAY;
+      }
+
+    } // end sending the puzzle
+
+
+    // stop sending the puzzle start message after it has been received
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
+        byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
+        if (neighborVal == PUZZLE_START_RECEIVED) { // received the start
+          faceComms[f] = INERT;
         }
       }
     }
 
-    // check to see if we still need to send the puzzle
-    if (didAllPetalReceivePuzzle()) {
-      bSendPuzzle = false;
-      setAllFaces(PUZZLE_START);
-      puzzleTimer.set(getPuzzleDuration(currentLevel));
-    }
-
-  } // end sending the puzzle
-
-
-  // stop sending the puzzle start message after it has been received
-  FOREACH_FACE(f) {
-    if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
-      byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
-      if (neighborVal == PUZZLE_START_RECEIVED) { // received the start
-        faceComms[f] = INERT;
+  } // end pieceType == CENTER
+  else if ( pieceType == PETAL ) {
+    // listen for click to become the center (and send puzzle... this is the start of a new game)
+    // listen for puzzle datagram, and enter gameplay
+    if (isCenterPossible()) {
+      if (buttonSingleClicked()) {
+        pieceType = CENTER;
+        startPuzzle(currentLevel);
       }
     }
-  }
 
-  // let's handle the puzzle logic
-  if (!puzzleTimer.isExpired()) {
+    // determine centerFace
+    centerFace = getCenterFace();
 
-    //let's demonstrate the puzzle
-    if ( puzzleTimer.getRemaining() > getDarkDuration(currentLevel) ) {
-      // we are in the show period
-      puzzleState = SHOW;
-    }
-    else {
-      // we are in the dark period
-      puzzleState = HIDE;
-    }
-  }
-  else {  // puzzle timer done, wait for input
+    if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
 
-    if (puzzleState == CORRECT || puzzleState == WRONG) {
-      // show the answer
-    }
-    else {
-      puzzleState = WAIT;
+      if (getDatagramLengthOnFace(centerFace) == 6) {//is it the right length?
+
+        byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
+
+        for (byte i = 0; i < 6; i++) {
+          puzzleInfo[i] = data[i];
+        }
+
+        markDatagramReadOnFace(centerFace);
+
+        faceComms[centerFace] = PUZZLE_RECEIVED;
+
+        // Parse the data
+        currentLevel = puzzleInfo[4]; // set our current puzzle level
+        // create puzzle state for stage one and stage two
+        //        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
+        //        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
+      }
     }
 
-    // listen for a response from a petal
+    // listen for start puzzle
+    if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_START ) {
+      if (puzzleTimer.isExpired()) {
+        puzzleTimer.set(getPuzzleDuration(currentLevel));
+        faceComms[centerFace] = PUZZLE_START_RECEIVED;
+        gameState = GAMEPLAY;
+      }
+    }
+  } // end pieceType == PETAL
+}
+
+
+/*
+   Gameplay Loop
+*/
+void gameplayLoop() {
+  if ( pieceType == CENTER ) {
+    // listen for neighbor clicked
+    // share result of the user selection with the group
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
         byte neighborVal = getLastValueReceivedOnFace(f);
@@ -254,9 +314,87 @@ void centerLoop() {
         }
       }
     }
-  }
+  } // end pieceType == CENTER
+  else if ( pieceType == PETAL ) {
+    // show
+    // hide
+    // wait
+    // listen for user input
+    // share user input with center
+    // listen for result of input
 
+    // determine centerFace
+    centerFace = getCenterFace();
+
+    bool acceptInput = true;
+
+    // listen for puzzleInfo
+    if (centerFace == FACE_COUNT) {
+      // not a legal petal... let's show this error state
+      acceptInput = false;
+    }
+
+    if (acceptInput) {
+      // listen for user input from a petal
+      if (buttonSingleClicked()) {
+        // am I correct or incorrect?
+        faceComms[centerFace] = USER_SELECT;
+      }
+    }
+
+  } // end pieceType == PETAL
 }
+
+
+/*
+   Answer Loop
+*/
+void answerLoop() {
+  if ( pieceType == CENTER ) {
+    // wait
+    // go to setup if correct
+    // go to scoreboard if incorrect
+  } // end pieceType == PETAL
+  else if ( pieceType == PETAL ) {
+    // wait
+    // go to setup if correct
+    // go to scoreboard if incorrect
+
+    // determine centerFace
+    centerFace = getCenterFace();
+
+  } // end pieceType == PETAL
+}
+
+
+/*
+   Scoreboard Loop
+*/
+void scoreboardLoop() {
+  if ( pieceType == CENTER ) {
+    // listen for click
+    // go to setup
+  } // end pieceType == PETAL
+  else if ( pieceType == PETAL ) {
+    // update/show score
+    // listen for click
+    // go to setup
+
+    // determine centerFace
+    centerFace = getCenterFace();
+
+  } // end pieceType == PETAL
+}
+
+
+/*
+   Reset Loop
+*/
+void resetLoop() {
+  // doesn't mater if we are center or not, we all return to our initial states
+}
+
+
 
 /*
    Center display loop
@@ -321,126 +459,6 @@ void centerDisplay() {
   }
 }
 
-/*
-   Petal update loop
-*/
-
-void petalLoop() {
-
-  if (isCenterPossible()) {
-    if (buttonSingleClicked()) {
-      pieceType = CENTER;
-      startPuzzle(currentLevel);
-    }
-  }
-
-  // determine centerFace
-  centerFace = getCenterFace();
-  bool acceptInput = true;
-
-  // listen for puzzleInfo
-  if (centerFace == FACE_COUNT) {
-    // not a legal petal... let's show this error state
-    acceptInput = false;
-  }
-  else {
-    if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
-
-      if (getDatagramLengthOnFace(centerFace) == 6) {//is it the right length?
-
-        byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
-
-        for (byte i = 0; i < 6; i++) {
-          puzzleInfo[i] = data[i];
-        }
-
-        markDatagramReadOnFace(centerFace);
-
-        faceComms[centerFace] = PUZZLE_RECEIVED;
-
-        // Parse the data
-        currentLevel = puzzleInfo[4]; // set our current puzzle level
-        // create puzzle state for stage one and stage two
-        //        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
-        //        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
-      }
-    }
-
-    // listen for start puzzle
-    if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_START ) {
-      if (puzzleTimer.isExpired()) {
-        puzzleTimer.set(getPuzzleDuration(currentLevel));
-        faceComms[centerFace] = PUZZLE_START_RECEIVED;
-      }
-    }
-
-    if ( getLastValueReceivedOnFace(centerFace) == USER_RESET ) {
-      reset();
-      faceComms[centerFace] = USER_RESET_RECEIVED;
-    }
-
-    if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_END ) {
-      puzzleState = LOSE;
-    }
-
-  }
-  //
-  if (!puzzleTimer.isExpired()) {
-
-    //let's demonstrate the puzzle
-    if ( puzzleTimer.getRemaining() > getDarkDuration(currentLevel) ) {
-      // we are in the show period
-      puzzleState = SHOW;
-    }
-    else {
-      // we are in the dark period
-      puzzleState = HIDE;
-    }
-  }
-  else {  // puzzle timer done, wait for input
-    if (puzzleState == CORRECT || puzzleState == WRONG || puzzleState == WIN || puzzleState == LOSE) {
-      // show the answer
-    }
-    else {
-      puzzleState = WAIT;
-    }
-
-    if (acceptInput) {
-      // listen for user input from a petal
-      if (buttonSingleClicked()) {
-        // am I correct or incorrect?
-        faceComms[centerFace] = USER_SELECT;
-
-        // TODO: let the center piece determine our state
-        //        if (puzzleInfo[3]) {
-        //          puzzleState = CORRECT;
-        //        }
-        //        else {
-        //          puzzleState = WRONG;
-        //        }
-      }
-    }
-  }
-  // this will never happen because the user selection will trigger correct or wrong
-  //  if ( getLastValueReceivedOnFace(centerFace) == USER_SELECT_RECEIVED ) {
-  //    faceComms[centerFace] = INERT;
-  //  }
-
-  // listen for correct or incorrect
-  if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_CORRECT ) {
-    faceComms[centerFace] = PUZZLE_CORRECT_RECEIVED;
-    puzzleState = CORRECT;
-    // wait n seconds
-    // then go back to setup
-  }
-
-  // return to inert
-  // TODO: Pretty sure this screws things up
-//  if ( getLastValueReceivedOnFace(centerFace) == INERT ) {
-//    faceComms[centerFace] = INERT;
-//  }
-
-}
 
 /*
    Petal display loop
