@@ -550,6 +550,11 @@ void resetLoop() {
 */
 void checkForReset(bool triggered) {
   if ( pieceType == CENTER ) {
+
+    if(!isCenterPossible()) {  // only allow reset while configured completely
+      return;
+    }
+    
     // listen for click
     if (triggered) {
       setAllFaces(USER_RESET);
