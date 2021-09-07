@@ -29,9 +29,7 @@ enum puzzleStates {
   HIDE,
   WAIT,
   CORRECT,
-  WRONG,
-  WIN,
-  LOSE
+  WRONG
 };
 
 byte puzzleState = WAIT;
@@ -48,6 +46,9 @@ Timer puzzleTimer;  // runs the timing of the puzzle
 int showTime = MAX_SHOW_TIME;
 int darkTime = MIN_DARK_TIME;
 
+Timer answerTimer; // runs the timing of displaying the answer
+#define ANSWER_DURATION 2000  // 2 seconds
+
 #define MAX_LEVEL 59
 byte currentLevel = 0;
 
@@ -61,7 +62,7 @@ byte currentLevel = 0;
   4: level
   5: petalID
 */
-byte puzzleInfo[6];
+byte puzzleInfo[6] = {0, 0, 0, 0, 0, 0};
 bool bSendPuzzle = false;
 Timer datagramTimer;
 #define DATAGRAM_TIMEOUT 1000
@@ -99,6 +100,8 @@ enum comms {
   USER_RESET_RECEIVED,
   PUZZLE_CORRECT,
   PUZZLE_CORRECT_RECEIVED,
+  PUZZLE_WRONG,
+  PUZZLE_WRONG_RECEIVED,
   PUZZLE_END,
   PUZZLE_END_RECEIVED,
   PUZZLE_WIN,
@@ -122,60 +125,107 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  if (slowTimer.isExpired()) {
-    slowTimer.set(FRAME_DURATION);
+  //  if (slowTimer.isExpired()) {
+  //    slowTimer.set(FRAME_DURATION);
 
-    switch (gameState) {
+  switch (gameState) {
 
-      case SETUP:
-        setupLoop();
-        break;
-      case GAMEPLAY:
-        gameplayLoop();
-        break;
-      case ANSWER:
-        answerLoop();
-        break;
-      case SCOREBOARD:
-        scoreboardLoop();
-        break;
-      case RESET:
-        resetLoop();
-        break;
-      default:
-        break;
-    }
-
-    // DEBUG Display
-    switch (gameState) {
-      case SETUP:
-        setColor(BLUE);
-        break;
-      case GAMEPLAY:
-        setColor(WHITE);
-        break;
-      case ANSWER:
-        setColor(GREEN);
-        break;
-      case SCOREBOARD:
-        setColor(MAGENTA);
-        break;
-      case RESET:
-        setColor(RED);
-        break;
-      default:
-        break;
-    }
-
-    // communication
-    FOREACH_FACE(f) {
-      setValueSentOnFace(faceComms[f], f);
-    }
-
-    // dump button presses
-    buttonSingleClicked();
-    buttonLongPressed();
+    case SETUP:
+      setupLoop();
+      break;
+    case GAMEPLAY:
+      gameplayLoop();
+      break;
+    case ANSWER:
+      answerLoop();
+      break;
+    case SCOREBOARD:
+      scoreboardLoop();
+      break;
+    case RESET:
+      resetLoop();
+      break;
+    default:
+      break;
   }
+
+  /*
+     DEBUG Display
+  */
+  switch (gameState) {
+    case SETUP:
+      setColor(BLUE);
+      break;
+    case GAMEPLAY:
+      {
+        if (pieceType == PETAL) {
+          if (puzzleInfo[3]) {
+            setColor(GREEN);
+          }
+          else {
+            setColor(WHITE);
+          }
+        }
+        else {
+          setColor(WHITE);
+        }
+      }
+      break;
+    case ANSWER:
+      setColor(GREEN);
+      break;
+    case SCOREBOARD:
+      setColor(MAGENTA);
+      break;
+    case RESET:
+      setColor(RED);
+      break;
+    default:
+      break;
+  }
+
+  /*
+     DEBUG Comms Display
+  */
+  switch (puzzleState) {
+    case SHOW:
+      setColorOnFace(MAGENTA, 0);
+      break;
+    case HIDE:
+      setColorOnFace(OFF, 0);
+      break;
+    case WAIT:
+      setColorOnFace(YELLOW, 0);
+      break;
+    case CORRECT:
+      setColorOnFace(GREEN, 0);
+      break;
+    case WRONG:
+      setColorOnFace(RED, 0);
+      break;
+    default:
+      break;
+  }
+
+
+  /*
+     Display the missing pieces from the center
+  */
+  //  FOREACH_FACE(f) {
+  //    if (isValueReceivedOnFaceExpired(f)) {
+  //      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
+  //    }
+  //  }
+
+  // communication
+  FOREACH_FACE(f) {
+    setValueSentOnFace(faceComms[f], f);
+  }
+
+  // dump button presses
+  buttonSingleClicked();
+  buttonLongPressed();
+  //  }
 }
 
 
@@ -185,6 +235,9 @@ void loop() {
 void setupLoop() {
   if ( pieceType == CENTER ) {
     // listen for click to send puzzle
+    if (buttonSingleClicked()) {
+      startPuzzle(currentLevel);
+    }
     // listen for all received puzzle
     // create a puzzle
     // and share that puzzle
@@ -216,7 +269,7 @@ void setupLoop() {
       }
 
       // check to see if we still need to send the puzzle
-      if (didAllPetalReceivePuzzle()) {
+      if (areAllFaces(PUZZLE_RECEIVED)) {
         bSendPuzzle = false;
         setAllFaces(PUZZLE_START);
         puzzleTimer.set(getPuzzleDuration(currentLevel));
@@ -249,6 +302,10 @@ void setupLoop() {
 
     // determine centerFace
     centerFace = getCenterFace();
+
+    if ( centerFace == FACE_COUNT ) { // NO CENTER FACE, DON'T DO ANYTHING
+      return;
+    }
 
     if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
 
@@ -298,27 +355,49 @@ void gameplayLoop() {
           faceComms[f] = USER_SELECT_RECEIVED;
           // this face was clicked on, was it correct?
           if (f == answerFace) {
-            puzzleState = CORRECT;
-            // show answer
+            // let others know we are correct
             setAllFaces(PUZZLE_CORRECT);
             // then get ready for next puzzle
+            currentLevel++;
           }
           else {
             // let others know we lost
-            puzzleState = LOSE;
-            setAllFaces(PUZZLE_END);
+            setAllFaces(PUZZLE_WRONG);
           }
-        }
-        else if (neighborVal == PUZZLE_CORRECT_RECEIVED) {
-          faceComms[f] = INERT;
         }
       }
     }
+
+    // check to see if all received the correct message
+    if (areAllFaces(PUZZLE_CORRECT_RECEIVED)) {
+      setAllFaces(INERT);
+      gameState = ANSWER;
+      answerTimer.set(ANSWER_DURATION);
+      puzzleState = CORRECT;
+    }
+
+    // check to see if all received the incorrect message
+    if (areAllFaces(PUZZLE_WRONG_RECEIVED)) {
+      setAllFaces(INERT);
+      gameState = ANSWER;
+      answerTimer.set(ANSWER_DURATION);
+      puzzleState = WRONG;
+    }
+
   } // end pieceType == CENTER
   else if ( pieceType == PETAL ) {
     // show
+    if ( puzzleTimer.getRemaining() > getDarkDuration(currentLevel) ) {
+      puzzleState = SHOW;
+    }
     // hide
+    else if ( puzzleTimer.getRemaining() <= getDarkDuration(currentLevel) && !puzzleTimer.isExpired() ) {
+      puzzleState = HIDE;
+    }
     // wait
+    else {
+      puzzleState = WAIT;
+    }
     // listen for user input
     // share user input with center
     // listen for result of input
@@ -326,11 +405,15 @@ void gameplayLoop() {
     // determine centerFace
     centerFace = getCenterFace();
 
+    if ( centerFace == FACE_COUNT ) {
+      return;
+      // not a legal petal... let's show this error state
+    }
+
     bool acceptInput = true;
 
-    // listen for puzzleInfo
-    if (centerFace == FACE_COUNT) {
-      // not a legal petal... let's show this error state
+    // don't allow input when not in the WAIT state
+    if (puzzleState != WAIT) {
       acceptInput = false;
     }
 
@@ -339,6 +422,33 @@ void gameplayLoop() {
       if (buttonSingleClicked()) {
         // am I correct or incorrect?
         faceComms[centerFace] = USER_SELECT;
+      }
+    }
+
+    // listen for cue to go to answer state from center
+    if (getLastValueReceivedOnFace(centerFace) == PUZZLE_CORRECT) {
+      faceComms[centerFace] = PUZZLE_CORRECT_RECEIVED;
+    }
+    else if (getLastValueReceivedOnFace(centerFace) == PUZZLE_WRONG) {
+      faceComms[centerFace] = PUZZLE_WRONG_RECEIVED;
+    }
+
+
+    // the center has validated that the answer was received on all faces, now go to answer loop
+    if (faceComms[centerFace] == PUZZLE_CORRECT_RECEIVED) {
+      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+        faceComms[centerFace] = INERT;
+        gameState = ANSWER;
+        answerTimer.set(ANSWER_DURATION);
+        puzzleState = CORRECT;
+      }
+    }
+    else if (faceComms[centerFace] == PUZZLE_WRONG_RECEIVED) {
+      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+        faceComms[centerFace] = INERT;
+        gameState = ANSWER;
+        answerTimer.set(ANSWER_DURATION);
+        puzzleState = WRONG;
       }
     }
 
@@ -352,13 +462,36 @@ void gameplayLoop() {
 void answerLoop() {
   if ( pieceType == CENTER ) {
     // wait
-    // go to setup if correct
-    // go to scoreboard if incorrect
+    if ( answerTimer.isExpired() ) {
+
+      if (puzzleState == CORRECT) {
+        // go to setup if correct
+        gameState = SETUP;
+        puzzleState = WAIT;
+      }
+      else if (puzzleState == WRONG) {
+        // go to scoreboard if incorrect
+        gameState = SCOREBOARD;
+      }
+
+    }
+
   } // end pieceType == PETAL
   else if ( pieceType == PETAL ) {
     // wait
-    // go to setup if correct
-    // go to scoreboard if incorrect
+    if ( answerTimer.isExpired() ) {
+
+      if (puzzleState == CORRECT) {
+        // go to setup if correct
+        gameState = SETUP;
+        puzzleState = WAIT;
+      }
+      else if (puzzleState == WRONG) {
+        // go to scoreboard if incorrect
+        gameState = SCOREBOARD;
+      }
+
+    }
 
     // determine centerFace
     centerFace = getCenterFace();
@@ -373,6 +506,24 @@ void answerLoop() {
 void scoreboardLoop() {
   if ( pieceType == CENTER ) {
     // listen for click
+    if (buttonSingleClicked()) {
+      setAllFaces(USER_RESET);
+    }
+
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        if (getLastValueReceivedOnFace(f) == USER_RESET) {
+          setAllFaces(USER_RESET);
+        }
+      }
+    }
+
+    // check to see if all received the reset message
+    if (areAllFaces(USER_RESET_RECEIVED)) {
+      setAllFaces(INERT);
+      gameState = RESET;
+    }
+    //
     // go to setup
   } // end pieceType == PETAL
   else if ( pieceType == PETAL ) {
@@ -383,6 +534,20 @@ void scoreboardLoop() {
     // determine centerFace
     centerFace = getCenterFace();
 
+    if (buttonSingleClicked()) {
+      faceComms[centerFace] = USER_RESET;
+    }
+
+    if (getLastValueReceivedOnFace(centerFace) == USER_RESET) {
+      faceComms[centerFace] = USER_RESET_RECEIVED;
+    }
+
+    if ( faceComms[centerFace] == USER_RESET_RECEIVED ) {
+      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+        gameState = RESET;
+      }
+    }
+
   } // end pieceType == PETAL
 }
 
@@ -392,142 +557,19 @@ void scoreboardLoop() {
 */
 void resetLoop() {
   // doesn't mater if we are center or not, we all return to our initial states
+  // initialize everything
+  currentLevel = 0;
+  for (byte i = 0; i < 6; i++) { // initialize the puzzle
+    puzzleInfo[i] = 0;
+  }
+  setAllFaces(INERT);
+  puzzleState = WAIT;
+  puzzleTimer.set(0);
+  answerTimer.set(0);
+  pieceType = PETAL;
+  gameState = SETUP;
 }
 
-
-
-/*
-   Center display loop
-*/
-
-void centerDisplay() {
-  setColor(ORANGE); // show we are the center piece
-
-  switch (puzzleState) {
-    case SHOW:
-      setColorOnFace(BLUE, 0);
-      break;
-    case HIDE:
-      setColorOnFace(OFF, 0);
-      break;
-    case WAIT:
-      setColorOnFace(GREEN, 0);
-      break;
-    case CORRECT:
-      setColor(WHITE);
-      break;
-    case WRONG:
-      setColor(RED);
-      break;
-    case WIN:
-      setColor(MAGENTA);
-      break;
-    case LOSE:
-      setColor(RED);
-      setColorOnFace(OFF, 0);
-      setColorOnFace(OFF, 2);
-      setColorOnFace(OFF, 4);
-      break;
-  }
-
-  /*
-    Display Comms
-  */
-  //  FOREACH_FACE(f) {
-  //    switch (faceComms[f]) {
-  //      case INERT:
-  //        setColorOnFace(WHITE,f);
-  //        break;
-  //      case PUZZLE_AVAIL:
-  //        setColorOnFace(BLUE, f);
-  //        break;
-  //      case PUZZLE_START:
-  //        setColorOnFace(MAGENTA, f);
-  //        break;
-  //      case USER_SELECT_RECEIVED:
-  //        setColorOnFace(RED, f);
-  //        break;
-  //    }
-  //  }
-
-
-  // Show missing pieces from center
-  FOREACH_FACE(f) {
-    if (isValueReceivedOnFaceExpired(f)) {
-      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
-    }
-  }
-}
-
-
-/*
-   Petal display loop
-*/
-void petalDisplay() {
-
-  setColor(GREEN);  // by default, let's color petals green
-
-  switch (puzzleState) {
-    case SHOW:
-      setColorOnFace(BLUE, 0);
-      break;
-    case HIDE:
-      setColorOnFace(OFF, 0);
-      break;
-    case WAIT:
-      setColorOnFace(GREEN, 0);
-      break;
-    case CORRECT:
-      setColor(WHITE);
-      break;
-    case WRONG:
-      setColor(RED);
-      break;
-    case WIN:
-      setColor(MAGENTA);
-      break;
-    case LOSE:
-      setColor(RED);
-      setColorOnFace(OFF, 0);
-      setColorOnFace(OFF, 2);
-      setColorOnFace(OFF, 4);
-      break;
-  }
-
-  /*
-     Display Comms
-  */
-  //  FOREACH_FACE(f) {
-  //    switch (faceComms[f]) {
-  //      case INERT:
-  //        setColorOnFace(WHITE,f);
-  //        break;
-  //      case PUZZLE_RECEIVED:
-  //        setColorOnFace(BLUE, f);
-  //        break;
-  //      case PUZZLE_START_RECEIVED:
-  //        setColorOnFace(MAGENTA, f);
-  //        break;
-  //      case USER_SELECT:
-  //        setColorOnFace(RED, f);
-  //        break;
-  //    }
-  //  }
-
-  if (puzzleInfo[3]) {
-    // I am the answer tile
-    setColor(BLUE);
-  }
-
-  if (isCenterPossible()) {
-    setColor(YELLOW); // show we are possible center pieces
-  }
-
-  if (centerFace != FACE_COUNT) {
-    //    setColorOnFace(OFF, centerFace);  //show center with off
-  }
-
-}
 
 /*
    returns true if this Blink is positioned and ready to be a center
@@ -624,22 +666,6 @@ void createPuzzle(byte level) {
 }
 
 /*
-   Returns true when all petals have received the puzzle
-*/
-bool didAllPetalReceivePuzzle() {
-
-  FOREACH_FACE(f) {
-    if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
-      if (getLastValueReceivedOnFace(f) != PUZZLE_RECEIVED) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-/*
    Look at neighbors and determine the center face
 */
 byte getCenterFace() {
@@ -682,6 +708,8 @@ byte getCenterFace() {
       return 0;
     }
   }
+
+  return FACE_COUNT;
 }
 
 /*
@@ -691,6 +719,23 @@ void setAllFaces(byte val) {
   FOREACH_FACE(f) {
     faceComms[f] = val;
   }
+}
+
+/*
+   Check if all faces are saying the same message
+*/
+bool areAllFaces(byte val) {
+  FOREACH_FACE(f) {
+    if (isValueReceivedOnFaceExpired(f)) {
+      return false;
+    }
+    else {
+      if (getLastValueReceivedOnFace(f) != val) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /*
