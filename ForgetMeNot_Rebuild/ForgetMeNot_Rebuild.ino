@@ -157,19 +157,7 @@ void loop() {
       setColor(BLUE);
       break;
     case GAMEPLAY:
-      {
-        if (pieceType == PETAL) {
-          if (puzzleInfo[3]) {
-            setColor(GREEN);
-          }
-          else {
-            setColor(WHITE);
-          }
-        }
-        else {
-          setColor(WHITE);
-        }
-      }
+      setColor(WHITE);
       break;
     case ANSWER:
       setColor(GREEN);
@@ -207,6 +195,11 @@ void loop() {
       break;
   }
 
+  if (pieceType == CENTER) {
+    if (answerFace < FACE_COUNT) {
+      setColorOnFace(GREEN, answerFace);
+    }
+  }
 
   /*
      Display the missing pieces from the center
