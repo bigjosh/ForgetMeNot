@@ -199,16 +199,17 @@ void loop() {
     if (answerFace < FACE_COUNT) {
       setColorOnFace(GREEN, answerFace);
     }
-  }
 
-  /*
-     Display the missing pieces from the center
-  */
-  //  FOREACH_FACE(f) {
-  //    if (isValueReceivedOnFaceExpired(f)) {
-  //      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
-  //    }
-  //  }
+    /*
+      Display the missing pieces from the center
+    */
+    FOREACH_FACE(f) {
+      if (isValueReceivedOnFaceExpired(f)) {
+        setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
+      }
+    }
+
+  }
 
   // communication
   FOREACH_FACE(f) {
