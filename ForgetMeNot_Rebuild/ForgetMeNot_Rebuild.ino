@@ -37,17 +37,17 @@ byte puzzleState = WAIT;
 Timer puzzleTimer;  // runs the timing of the puzzle
 
 //SHOW/DARK time variables TODO: TUNE THESE
-#define MAX_SHOW_TIME 4000    // 4 seconds on
-#define MIN_SHOW_TIME 2000    // 2 seconds on
-#define MIN_DARK_TIME 1000    // 1 second  off
-#define MAX_DARK_TIME 2000    // 2 seconds off
+#define MAX_SHOW_TIME 5000    // 5 seconds on
+#define MIN_SHOW_TIME 3000    // 3 seconds on
+#define MIN_DARK_TIME 1500    // 1.5 second  off
+#define MAX_DARK_TIME 3000    // 3 seconds off
 #define CURVE_BEGIN_LEVEL 1
 #define CURVE_END_LEVEL 10
 int showTime = MAX_SHOW_TIME;
 int darkTime = MIN_DARK_TIME;
 
 Timer answerTimer; // runs the timing of displaying the answer
-#define ANSWER_DURATION 2000  // 2 seconds
+#define ANSWER_DURATION 3000  // 3 seconds
 
 #define MAX_LEVEL 72
 byte currentLevel = 0;
@@ -69,6 +69,13 @@ Timer datagramTimer;
 byte answerFace = FACE_COUNT;
 byte centerFace = FACE_COUNT;
 
+enum puzzleType {
+  COLOR_PETALS,       // Each petal is a single color
+  LOCATION_PETALS,    // Each petal is lit a single direction
+  DUO_PETALS,         // Each petal is a pair of colors
+  ROTATION_PETALS     // Each petal animates rotation CW or CCW
+};
+
 /*
    Forget-me-not **Puzzle Levels**
    (^.^)  @)--^--  (^_^)          |                      STAGE 1                       |                      STAGE 2                       |                      STAGE 3                       |                      STAGE 4                       |
@@ -86,6 +93,13 @@ byte difficultyArray[MAX_LEVEL] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 
 
 Color petalColors[6] = {COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5, COLOR_6};
 
+byte rotationBri[6] = {0, 0, 0, 0, 0, 0};
+byte rotationFace = 0;
+Timer rotationTimer;
+#define ROTATION_RATE 100
+
+byte stageOneData = 0;
+byte stageTwoData = 0;
 
 /*
    Communications
@@ -121,8 +135,8 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  //  if (slowTimer.isExpired()) {
-  //    slowTimer.set(FRAME_DURATION);
+//    if (slowTimer.isExpired()) {
+//      slowTimer.set(FRAME_DURATION);
 
   switch (gameState) {
 
@@ -155,7 +169,7 @@ void loop() {
   }
 
   // debug display
-  displayDebug();
+  //  displayDebug();
 
   // communication
   FOREACH_FACE(f) {
@@ -165,7 +179,7 @@ void loop() {
   // dump button presses
   buttonSingleClicked();
   buttonLongPressed();
-  //  }
+//    }
 }
 
 
@@ -267,8 +281,8 @@ void setupLoop() {
         // Parse the data
         currentLevel = puzzleInfo[4]; // set our current puzzle level
         // create puzzle state for stage one and stage two
-        //        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
-        //        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
+        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
+        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
       }
     }
 
@@ -278,6 +292,7 @@ void setupLoop() {
         puzzleTimer.set(getPuzzleDuration(currentLevel));
         faceComms[centerFace] = PUZZLE_START_RECEIVED;
         gameState = GAMEPLAY;
+        puzzleState = SHOW;
       }
     }
   } // end pieceType == PETAL
@@ -483,6 +498,8 @@ void resetLoop() {
   puzzleTimer.set(0);
   answerTimer.set(0);
   pieceType = PETAL;
+  stageOneData = 0;
+  stageTwoData = 0;
   gameState = SETUP;
 }
 
@@ -641,6 +658,70 @@ void createPuzzle(byte level) {
 }
 
 /*
+    Determine the 1st and 2nd stage
+    returns a value that can be used by the display function to display
+    the correct puzzle pieces.
+    NOTE: this is from the original repo and admittedly pretty spaghetti
+*/
+byte determineStages(byte puzzType, byte puzzDiff, bool amAnswer, byte stage) {
+  if (stage == 1) {//determine the first stage - pretty much always a number 0-5, but in duoPetal it's a little more complicated
+    if (puzzType == DUO_PETALS) {//special duo petal time!
+      //choose a random interior color
+      byte interior = random(5);
+      //so based on the difficulty, we then choose another color
+      byte distance = 5 - puzzDiff;
+
+      byte exterior = 0;
+      bool goRight = random(1);
+      if (goRight) {
+        exterior = (interior + distance) % 6;
+      } else {
+        exterior = (interior + 6 - distance) % 6;
+      }
+      return ((interior * 10) + exterior);
+    } else if (puzzType == ROTATION_PETALS) {
+      return (random(1));
+
+    } else {//every other puzzle just chooses a random number 0-5
+      return (random(5));
+    }
+
+  } else {//only change answer if amAnswer
+    if (amAnswer) {//I gotta return a different value
+
+      if (puzzType == DUO_PETALS) { //this is a duo petal, so we gotta reverse it
+        byte newExterior = stageOneData / 10;
+        byte newInterior = stageOneData % 10;
+        return ((newInterior * 10) + newExterior);
+
+      } else if (puzzType == ROTATION_PETALS) {//just swap from 0 to 1 and vice versa
+        if (stageOneData == 0) {
+          return (1);
+        } else {
+          return (0);
+        }
+      } else {//all other puzzles, just decide how far to rotate in the spectrum
+        /*
+           NOTE: difficulty distance should be thought of from the midpoint
+           i.e. the easiest difference in color will be 180º away in the spectrum
+           and the easiest difference in direction will be 180º opposite
+        */
+        byte distance = 5 - puzzDiff;
+        bool goRight = random(1);
+        if (goRight) {
+          return ((stageOneData + distance) % 6);
+        } else {
+          return ((stageOneData + 6 - distance) % 6);
+        }
+      }
+    } else {//if you are not the answer, just return the stage one data
+      return (stageOneData);
+    }
+  }
+}
+
+
+/*
    Look at neighbors and determine the center face
 */
 byte getCenterFace() {
@@ -724,20 +805,26 @@ bool areAllFaces(byte val) {
 */
 void displayCenter() {
 
-  if(gameState == SETUP) { // Center display during setup
-    
+  if (gameState == SETUP) { // Center display during setup
+    setColor(YELLOW);
   }
-  else if(gameState == GAMEPLAY) { // Center display during gameplay
-    
+  else if (gameState == GAMEPLAY) { // Center display during gameplay
+    setColor(YELLOW);
   }
-  else if(gameState == ANSWER) { // Center display during answer
-    
+  else if (gameState == ANSWER) { // Center display during answer
+
+    if ( puzzleState == CORRECT ) {
+      setColor(GREEN);
+    }
+    else if (puzzleState == WRONG ) {
+      setColor(RED);
+    }
   }
-  else if(gameState == SCOREBOARD) { // Center display during scoreboard
-    
+  else if (gameState == SCOREBOARD) { // Center display during scoreboard
+    setColor(YELLOW);
   }
-  else if(gameState == RESET) { // Center display during reset
-    
+  else if (gameState == RESET) { // Center display during reset
+    //setColor(BLUE);
   }
 }
 
@@ -746,22 +833,135 @@ void displayCenter() {
 */
 void displayPetal() {
 
-  if(gameState == SETUP) {  // Petal display during setup
-    
+  if (gameState == SETUP) { // Petal display during setup
+
+    if (centerFace != FACE_COUNT) {
+      setColor(OFF);
+      setColorOnFace(GREEN, centerFace);
+    }
+    else {
+      setColor(GREEN);
+    }
+
+    if ( isCenterPossible() ) {
+      setColor(ORANGE);
+    }
   }
-  else if(gameState == GAMEPLAY) {  // Petal display during gameplay
-    
+  else if (gameState == GAMEPLAY) { // Petal display during gameplay
+
+    if ( puzzleState == SHOW ) {
+      displayStage( stageOneData );
+    }
+    else if ( puzzleState == HIDE ) {
+      setColor(OFF);
+      setColorOnFace(GREEN, centerFace);
+    }
+    else if ( puzzleState == WAIT ) {
+      displayStage( stageTwoData );
+    }
+
   }
-  else if(gameState == ANSWER) {  // Petal display during answer
-    
+  else if (gameState == ANSWER) { // Petal display during answer
+    if ( puzzleState == CORRECT ) {
+      setColor(GREEN);
+    }
+    else if (puzzleState == WRONG ) {
+      setColor(RED);
+      if (puzzleInfo[3]) {
+        setColor(CYAN);
+      }
+    }
   }
-  else if(gameState == SCOREBOARD) {  // Petal display during scoreboard
-    
+  else if (gameState == SCOREBOARD) { // Petal display during scoreboard
+    // display face IDs
+    setColor(OFF);
+    FOREACH_FACE(f) {
+      if (f <= puzzleInfo[5]) {
+        setColorOnFace(MAGENTA, f);
+      }
+    }
   }
-  else if(gameState == RESET) { // Petal display during reset
-    
+  else if (gameState == RESET) { // Petal display during reset
+    //setColor(BLUE);
   }
 }
+
+/*
+   Display Stage
+*/
+void displayStage( byte stageData ) {
+
+  switch (puzzleInfo[0]) {
+
+    case COLOR_PETALS:
+      setColor(petalColors[stageData]);
+      break;
+
+    case LOCATION_PETALS:
+      displayLocationPetal(stageData);
+      break;
+
+    case DUO_PETALS:
+      displayDuoPetal((stageData / 10), (stageData % 10)); // interior, exterior
+      break;
+
+    case ROTATION_PETALS:
+      displayRotationPetal(stageData);
+      break;
+
+    default:
+      setColor(RED);  // IF WE SEE THIS: ERROR! HOW'D WE GET HERE?!
+      break;
+  }
+}
+
+/*
+   Location Petals
+   dark with a single direction illuminated
+*/
+void displayLocationPetal(byte dir) {
+  setColor(OFF);
+  setColorOnFace(WHITE, dir);
+}
+
+/*
+   Duo Petals
+   inner and outer are 2 different colors
+*/
+void displayDuoPetal(byte interior, byte exterior) {
+  setColor(petalColors[interior]);//setting the interior color
+
+  setColorOnFace(petalColors[exterior], (centerFace + 2) % 6);
+  setColorOnFace(petalColors[exterior], (centerFace + 3) % 6);
+  setColorOnFace(petalColors[exterior], (centerFace + 4) % 6);
+}
+
+/*
+   Rotation Animation
+   rotates CW or CCW with trail
+*/
+void displayRotationPetal(bool isCW) {
+
+  if (rotationTimer.isExpired()) {
+
+    rotationTimer.set(ROTATION_RATE);
+
+    if (isCW) { // CW Rotation
+      rotationFace = (rotationFace + 1) % 6;
+    } else {  // CCW Rotation
+      rotationFace = (rotationFace + 5) % 6;
+    }
+    rotationBri[rotationFace] = 255;
+  }
+
+  FOREACH_FACE(f) {
+    if ( rotationBri[f] >= 5 ) {
+      rotationBri[f] -= 5;
+    }
+    setColorOnFace(dim(WHITE, rotationBri[f]), f);
+  }
+}
+
 
 /*
    DEBUG Display
