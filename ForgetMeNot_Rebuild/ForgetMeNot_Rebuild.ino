@@ -461,6 +461,10 @@ void answerLoop() {
         // go to setup if correct
         gameState = SETUP;
         puzzleState = WAIT;
+        answerFace = FACE_COUNT;
+        for (byte i = 0; i < 6; i++) { // initialize the puzzle
+          puzzleInfo[i] = 0;
+        }
       }
       else if (puzzleState == WRONG) {
         // go to scoreboard if incorrect
