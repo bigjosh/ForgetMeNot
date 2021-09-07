@@ -143,6 +143,15 @@ void loop() {
       break;
   }
 
+  switch (pieceType) {
+    case CENTER:
+      displayCenter();
+      break;
+    case PETAL:
+      displayPetal();
+      break;
+  }
+
   // debug display
   displayDebug();
 
@@ -716,9 +725,9 @@ void displayCenter() {
 }
 
 /*
-   Display Petals
+   Display Petal
 */
-void displayPetals() {
+void displayPetal() {
 
 }
 
