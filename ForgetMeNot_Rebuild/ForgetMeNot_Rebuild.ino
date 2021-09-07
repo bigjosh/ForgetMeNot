@@ -102,8 +102,6 @@ enum comms {
   PUZZLE_CORRECT_RECEIVED,
   PUZZLE_WRONG,
   PUZZLE_WRONG_RECEIVED,
-  PUZZLE_END,
-  PUZZLE_END_RECEIVED,
   PUZZLE_WIN,
   PUZZLE_WIN_RECEIVED
 };
@@ -145,76 +143,8 @@ void loop() {
       break;
   }
 
-  /*
-     DEBUG Display
-  */
-  switch (gameState) {
-    case SETUP:
-      setColor(BLUE);
-      break;
-    case GAMEPLAY:
-      setColor(WHITE);
-      break;
-    case ANSWER:
-      setColor(GREEN);
-      break;
-    case SCOREBOARD:
-      setColor(MAGENTA);
-      break;
-    case RESET:
-      setColor(RED);
-      break;
-    default:
-      break;
-  }
-
-  /*
-     DEBUG Comms Display
-  */
-  switch (puzzleState) {
-    case SHOW:
-      setColorOnFace(MAGENTA, 0);
-      break;
-    case HIDE:
-      setColorOnFace(OFF, 0);
-      break;
-    case WAIT:
-      setColorOnFace(YELLOW, 0);
-      break;
-    case CORRECT:
-      setColorOnFace(GREEN, 0);
-      break;
-    case WRONG:
-      setColorOnFace(RED, 0);
-      break;
-    default:
-      break;
-  }
-
-  if (pieceType == CENTER) {
-    if (answerFace < FACE_COUNT) {
-      setColorOnFace(GREEN, answerFace);
-    }
-
-    /*
-      Display the missing pieces from the center
-    */
-    FOREACH_FACE(f) {
-      if (isValueReceivedOnFaceExpired(f)) {
-        setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
-      }
-    }
-
-    if (gameState == SETUP) {
-      setColor(BLUE);
-      FOREACH_FACE(f) {
-        if (f < currentLevel % 6) {
-          setColorOnFace(ORANGE, f);
-        }
-      }
-    }
-
-  }
+  // debug display
+  displayDebug();
 
   // communication
   FOREACH_FACE(f) {
@@ -551,10 +481,10 @@ void resetLoop() {
 void checkForReset(bool triggered) {
   if ( pieceType == CENTER ) {
 
-    if(!isCenterPossible()) {  // only allow reset while configured completely
+    if (!isCenterPossible()) { // only allow reset while configured completely
       return;
     }
-    
+
     // listen for click
     if (triggered) {
       setAllFaces(USER_RESET);
@@ -770,4 +700,99 @@ bool areAllFaces(byte val) {
     }
   }
   return true;
+}
+
+/*
+   Display Section
+   ------------------------
+   here we will display all of the beautiful flowers :)
+*/
+
+/*
+   Display Center
+*/
+void displayCenter() {
+
+}
+
+/*
+   Display Petals
+*/
+void displayPetals() {
+
+}
+
+/*
+   DEBUG Display
+*/
+
+void displayDebug() {
+
+  switch (gameState) {
+    case SETUP:
+      setColor(BLUE);
+      break;
+    case GAMEPLAY:
+      setColor(WHITE);
+      break;
+    case ANSWER:
+      setColor(GREEN);
+      break;
+    case SCOREBOARD:
+      setColor(MAGENTA);
+      break;
+    case RESET:
+      setColor(RED);
+      break;
+    default:
+      break;
+  }
+
+  /*
+     DEBUG Comms Display
+  */
+  switch (puzzleState) {
+    case SHOW:
+      setColorOnFace(MAGENTA, 0);
+      break;
+    case HIDE:
+      setColorOnFace(OFF, 0);
+      break;
+    case WAIT:
+      setColorOnFace(YELLOW, 0);
+      break;
+    case CORRECT:
+      setColorOnFace(GREEN, 0);
+      break;
+    case WRONG:
+      setColorOnFace(RED, 0);
+      break;
+    default:
+      break;
+  }
+
+  if (pieceType == CENTER) {
+    if (answerFace < FACE_COUNT) {
+      setColorOnFace(GREEN, answerFace);
+    }
+
+    /*
+      Display the missing pieces from the center
+    */
+    FOREACH_FACE(f) {
+      if (isValueReceivedOnFaceExpired(f)) {
+        setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
+      }
+    }
+
+    if (gameState == SETUP) {
+      setColor(BLUE);
+      FOREACH_FACE(f) {
+        if (f < currentLevel % 6) {
+          setColorOnFace(ORANGE, f);
+        }
+      }
+    }
+
+  }
 }
