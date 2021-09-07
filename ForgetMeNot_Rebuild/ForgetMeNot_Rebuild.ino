@@ -205,10 +205,10 @@ void loop() {
       }
     }
 
-    if(gameState == SETUP) {
+    if (gameState == SETUP) {
       setColor(BLUE);
       FOREACH_FACE(f) {
-        if(f < currentLevel % 6) {
+        if (f < currentLevel % 6) {
           setColorOnFace(ORANGE, f);
         }
       }
@@ -232,6 +232,9 @@ void loop() {
    Setup Loop
 */
 void setupLoop() {
+  // listen for reset
+  checkForReset(buttonLongPressed());
+
   if ( pieceType == CENTER ) {
     // listen for click to send puzzle
     if (buttonSingleClicked()) {
@@ -344,6 +347,9 @@ void setupLoop() {
    Gameplay Loop
 */
 void gameplayLoop() {
+  // listen for reset
+  checkForReset(buttonLongPressed());
+
   if ( pieceType == CENTER ) {
     // listen for neighbor clicked
     // share result of the user selection with the group
@@ -459,6 +465,9 @@ void gameplayLoop() {
    Answer Loop
 */
 void answerLoop() {
+  // listen for reset
+  checkForReset(buttonLongPressed());
+
   if ( pieceType == CENTER ) {
     // wait
     if ( answerTimer.isExpired() ) {
@@ -507,9 +516,42 @@ void answerLoop() {
    Scoreboard Loop
 */
 void scoreboardLoop() {
+  // listen for reset
+  checkForReset(buttonLongPressed() || buttonSingleClicked());
+
+  if ( pieceType == CENTER ) {
+  }
+  else if ( pieceType == PETAL ) {
+    // update/show score
+  }
+}
+
+
+/*
+   Reset Loop
+*/
+void resetLoop() {
+  // doesn't mater if we are center or not, we all return to our initial states
+  // initialize everything
+  currentLevel = 0;
+  for (byte i = 0; i < 6; i++) { // initialize the puzzle
+    puzzleInfo[i] = 0;
+  }
+  setAllFaces(INERT);
+  puzzleState = WAIT;
+  puzzleTimer.set(0);
+  answerTimer.set(0);
+  pieceType = PETAL;
+  gameState = SETUP;
+}
+
+/*
+   Check for Reset
+*/
+void checkForReset(bool triggered) {
   if ( pieceType == CENTER ) {
     // listen for click
-    if (buttonSingleClicked()) {
+    if (triggered) {
       setAllFaces(USER_RESET);
     }
 
@@ -530,14 +572,17 @@ void scoreboardLoop() {
     // go to setup
   } // end pieceType == PETAL
   else if ( pieceType == PETAL ) {
-    // update/show score
     // listen for click
     // go to setup
 
     // determine centerFace
     centerFace = getCenterFace();
 
-    if (buttonSingleClicked()) {
+    if (centerFace == FACE_COUNT) { // this piece is not attached correctly
+      return;
+    }
+
+    if (triggered) {
       faceComms[centerFace] = USER_RESET;
     }
 
@@ -552,25 +597,6 @@ void scoreboardLoop() {
     }
 
   } // end pieceType == PETAL
-}
-
-
-/*
-   Reset Loop
-*/
-void resetLoop() {
-  // doesn't mater if we are center or not, we all return to our initial states
-  // initialize everything
-  currentLevel = 0;
-  for (byte i = 0; i < 6; i++) { // initialize the puzzle
-    puzzleInfo[i] = 0;
-  }
-  setAllFaces(INERT);
-  puzzleState = WAIT;
-  puzzleTimer.set(0);
-  answerTimer.set(0);
-  pieceType = PETAL;
-  gameState = SETUP;
 }
 
 
