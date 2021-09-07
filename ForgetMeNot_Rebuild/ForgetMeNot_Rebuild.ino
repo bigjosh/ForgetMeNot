@@ -722,6 +722,21 @@ bool areAllFaces(byte val) {
 */
 void displayCenter() {
 
+  if(gameState == SETUP) { // Center display during setup
+    
+  }
+  else if(gameState == GAMEPLAY) { // Center display during gameplay
+    
+  }
+  else if(gameState == ANSWER) { // Center display during answer
+    
+  }
+  else if(gameState == SCOREBOARD) { // Center display during scoreboard
+    
+  }
+  else if(gameState == RESET) { // Center display during reset
+    
+  }
 }
 
 /*
@@ -729,6 +744,21 @@ void displayCenter() {
 */
 void displayPetal() {
 
+  if(gameState == SETUP) {  // Petal display during setup
+    
+  }
+  else if(gameState == GAMEPLAY) {  // Petal display during gameplay
+    
+  }
+  else if(gameState == ANSWER) {  // Petal display during answer
+    
+  }
+  else if(gameState == SCOREBOARD) {  // Petal display during scoreboard
+    
+  }
+  else if(gameState == RESET) { // Petal display during reset
+    
+  }
 }
 
 /*
