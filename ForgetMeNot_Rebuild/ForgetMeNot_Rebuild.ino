@@ -37,10 +37,10 @@ byte puzzleState = WAIT;
 Timer puzzleTimer;  // runs the timing of the puzzle
 
 //SHOW/DARK time variables TODO: TUNE THESE
-#define MAX_SHOW_TIME 6000    // 4 seconds on
-#define MIN_SHOW_TIME 4000    // 2 seconds on
-#define MIN_DARK_TIME 2000    // 1 second  off
-#define MAX_DARK_TIME 4000    // 2 seconds off
+#define MAX_SHOW_TIME 4000    // 4 seconds on
+#define MIN_SHOW_TIME 2000    // 2 seconds on
+#define MIN_DARK_TIME 1000    // 1 second  off
+#define MAX_DARK_TIME 2000    // 2 seconds off
 #define CURVE_BEGIN_LEVEL 1
 #define CURVE_END_LEVEL 10
 int showTime = MAX_SHOW_TIME;
