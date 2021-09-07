@@ -22,7 +22,7 @@ enum gameStates {
   RESET
 };
 
-byte gameState = SETUP;
+byte gameState = RESET;
 
 enum puzzleStates {
   SHOW,
@@ -110,16 +110,12 @@ enum comms {
 
 byte faceComms[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
 
-#define RESET_TIMEOUT 250
-Timer resetTimer;
-
 Timer slowTimer;
 #define FRAME_DURATION 200
 
 void setup() {
   // put your setup code here, to run once:
   randomize();
-  reset();
 }
 
 void loop() {
@@ -743,16 +739,4 @@ bool areAllFaces(byte val) {
     }
   }
   return true;
-}
-
-/*
-  Initialize variables to reset the Blink... just like when we boot up :)
-*/
-void reset() {
-  pieceType = PETAL;
-  currentLevel  = 0;
-  puzzleTimer.set(0);
-  puzzleState = WAIT;
-  setAllFaces(INERT);
-  resetTimer.never();
 }
