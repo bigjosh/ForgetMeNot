@@ -209,6 +209,15 @@ void loop() {
       }
     }
 
+    if(gameState == SETUP) {
+      setColor(BLUE);
+      FOREACH_FACE(f) {
+        if(f < currentLevel % 6) {
+          setColorOnFace(ORANGE, f);
+        }
+      }
+    }
+
   }
 
   // communication
@@ -351,8 +360,6 @@ void gameplayLoop() {
           if (f == answerFace) {
             // let others know we are correct
             setAllFaces(PUZZLE_CORRECT);
-            // then get ready for next puzzle
-            currentLevel++;
           }
           else {
             // let others know we lost
@@ -368,6 +375,8 @@ void gameplayLoop() {
       gameState = ANSWER;
       answerTimer.set(ANSWER_DURATION);
       puzzleState = CORRECT;
+      // we passed this level let's increment
+      currentLevel++;
     }
 
     // check to see if all received the incorrect message
