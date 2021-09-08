@@ -18,7 +18,7 @@ byte centerFace = 0;
 
 byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};  // TODO: is there a reason this isn's just the PuzzleInfo?
 
-#define MAX_LEVEL 59
+#define MAX_LEVEL 72
 byte currentPuzzleLevel = 0;
 Timer puzzleTimer;
 bool puzzleStarted = false;
@@ -49,16 +49,20 @@ byte petalID;
 // ----------------------------------------
 
 
-// Puzzle Levels
-byte puzzleArray[60] =     {0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 2, 2, 1, 0, 2, 3, 3, 2, 0, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
-byte difficultyArray[60] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 3, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+/*
+   Forget-me-not **Puzzle Levels**
+   (^.^)  @)--^--  (^_^)          |                      STAGE 1                       |                      STAGE 2                       |                      STAGE 3                       |                      STAGE 4                       |
+                                  |````````````````````````````````````````````````````|****************************************************|####################################################|$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$|
+*/
+byte puzzleArray[MAX_LEVEL] =     {0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 2, 2, 1, 0, 2, 3, 3, 2, 0, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+byte difficultyArray[MAX_LEVEL] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 3, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 
-#define COLOR_1 makeColorHSB(220,200,255)  // LIGHTPINK
-#define COLOR_2 makeColorHSB(255,200,255)  // SALMON
-#define COLOR_3 makeColorHSB(220,200,255)  // PINK
-#define COLOR_4 makeColorHSB(180,200,255)  // MAUVE
+#define COLOR_1 makeColorHSB( 30,200,255)  // SALMON
+#define COLOR_2 makeColorHSB(255,200,255)  // PINK
+#define COLOR_3 makeColorHSB(220,200,255)  // LIGHT PINK
+#define COLOR_4 makeColorHSB(180,200,255)  // VIOLET
 #define COLOR_5 makeColorHSB(150,200,255)  // INDIGO
-#define COLOR_6 makeColorHSB(120, 50,255)  // PERIWINKLE
+#define COLOR_6 makeColorHSB(120, 50,255)  // PERIWINKLE/WHITE
 
 Color petalColors[6] = {COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5, COLOR_6};
 
@@ -337,7 +341,7 @@ void pieceLoop() {
         gameState = WAITING;
 
         //if you are at MAX_LEVEL, you should go into a special kind of correct - VICTORY
-        if (puzzleInfo[4] == MAX_LEVEL) {
+        if (puzzleInfo[4] == (MAX_LEVEL-1)) {
           answerState = VICTORY;
         }
 
@@ -519,7 +523,7 @@ void setupDisplay() {
 
   if (isScoreboard) {
 
-    if (puzzleInfo[4] == MAX_LEVEL) { //oh, this is a VICTORY scoreboard
+    if (puzzleInfo[4] == (MAX_LEVEL-1)) { //oh, this is a VICTORY scoreboard
       setColor(MAGENTA);
     } else {//a regular failure scoreboard
 
