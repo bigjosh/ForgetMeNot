@@ -120,6 +120,9 @@ byte rotationFace = 0;
 Timer rotationTimer;
 #define ROTATION_RATE 100
 
+uint32_t timeOfBloom = 0;
+bool wasCenterPossible = false;
+
 byte stageOneData = 0;
 byte stageTwoData = 0;
 
@@ -278,6 +281,13 @@ void setupLoop() {
         pieceType = CENTER;
         startPuzzle(currentLevel);
       }
+      if(!wasCenterPossible) {
+        wasCenterPossible = true;
+        timeOfBloom = millis();
+      }
+    }
+    else {
+      wasCenterPossible = false;
     }
 
     // determine centerFace
@@ -521,6 +531,7 @@ void resetLoop() {
   puzzleTimer.set(0);
   answerTimer.set(0);
   pieceType = PETAL;
+  wasCenterPossible = false;
   stageOneData = 0;
   stageTwoData = 0;
   gameState = SETUP;
@@ -837,14 +848,27 @@ bool areAllFaces(byte val) {
    ------------------------
    here we will display all of the beautiful flowers :)
 */
-
+#define YELLOW_HUE 77
+#define GREEN_HUE 42
 /*
    Display Center
 */
 void displayCenter() {
 
   if (gameState == SETUP) { // Center display during setup
-    setColor(YELLOW);
+
+    uint32_t timeSinceBloom = millis() - timeOfBloom;
+
+    if(timeSinceBloom > 2000) {
+      setColor(YELLOW);      
+      setColorOnFace(WHITE, random(5));
+    }
+    else {
+      byte hue = GREEN_HUE + ( (YELLOW_HUE - GREEN_HUE) * timeSinceBloom ) / 2000;
+      byte bri = 100 + (155 * timeSinceBloom) / 2000;
+      setColor(makeColorHSB(hue, 255, bri));
+      setColorOnFace(dim(WHITE, bri), random(5)); 
+    }
   }
   else if (gameState == GAMEPLAY) { // Center display during gameplay
     setColor(YELLOW);
@@ -925,7 +949,7 @@ void displayPetal() {
     petalID = puzzleInfo[5];
     setColor(OFF);
     //displayScoreboard();  // WAY OVER MEMORY
-    
+
     // display face IDs
     FOREACH_FACE(f) {
       if (f <= petalID) {
