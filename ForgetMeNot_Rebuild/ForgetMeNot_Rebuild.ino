@@ -161,7 +161,7 @@ void loop() {
   //      slowTimer.set(FRAME_DURATION);
 
   switch (gameState) {
-    
+
     case SETUP:
       setupLoop();
       break;
@@ -921,10 +921,14 @@ void displayPetal() {
     }
   }
   else if (gameState == SCOREBOARD) { // Petal display during scoreboard
-    // display face IDs
+
+    petalID = puzzleInfo[5];
     setColor(OFF);
+    //displayScoreboard();  // WAY OVER MEMORY
+    
+    // display face IDs
     FOREACH_FACE(f) {
-      if (f <= puzzleInfo[5]) {
+      if (f <= petalID) {
         setColorOnFace(MAGENTA, f);
       }
     }
@@ -1010,6 +1014,143 @@ void displayRotationPetal(bool isCW) {
   }
 }
 
+void displayScoreboard() {
+
+  numberOfRounds = (currentLevel) / PIP_IN_ROUND;
+  numberOfPips = (currentLevel) % PIP_IN_ROUND; // CAREFUL: 0 pips means a single pip (index of 0), 5 pips means all 6 lit (index of 5)
+
+  uint32_t timeSinceGameEnded = millis() - timeOfGameEnding;
+
+  if (timeSinceGameEnded < ANSWER_REVEAL_DURATION) {
+    // display the correct piece and fade out to reveal the gameboard
+    byte bri = 255 - (255 * timeSinceGameEnded / ANSWER_REVEAL_DURATION);
+    if (puzzleInfo[3]) { // i was the correct answer
+      setColor(dim(GREEN, bri));  // show Green for correct
+    }
+    else {
+      setColor(dim(RED, bri)); // show Red for wrong
+    }
+  }
+  else {
+    timeSinceScoreboardBegan = millis() - (timeOfGameEnding + ANSWER_REVEAL_DURATION);
+
+    currentRound = timeSinceScoreboardBegan / roundDuration;
+
+    if ( currentRound >= numberOfRounds ) {
+      currentRound = numberOfRounds; // cap the rounds at the score
+    }
+
+    displayBackground();
+    displayForeground();
+  }
+}
+
+/*
+   Display the build of the rounds completed
+*/
+
+void displayBackground() {
+
+  uint32_t timeSinceRoundBegan = timeSinceScoreboardBegan - (currentRound * roundDuration);  // time passed in this round
+
+  // display background color on face based on how much time has passed
+  FOREACH_FACE(f) {
+    byte faceOffset = (f + centerFace + 2) % 6;
+
+    if ( f == centerFace ) { // draw face touching the center
+      if (puzzleInfo[3]) { //i was the correct answer
+        setColorOnFace(dim(GREEN, sin8_C(millis() / 4)), f); //pulse leaf
+      }
+      else {
+        setColorOnFace(GREEN, f); // show leaf
+      }
+    }
+
+    // only display the 3 pips in our petal
+    if (f >= 3) {
+      continue; // for the time being, let's only display on 0,1,2
+    }
+
+    uint32_t faceTime = f * PIP_DURATION_IN_ROUND; // after this amount of time has passed, draw on this pip
+    uint32_t timeToDisplayPrevPetals = PIP_DURATION_IN_ROUND * (petalID * NUM_PIP_IN_PETAL);
+    if ( timeSinceRoundBegan > ( faceTime + timeToDisplayPrevPetals ) ) {
+
+      //      setColorOnFace(RED, f);
+      switch (currentRound) {
+        case 0: setColorOnFace(dim(RED, 200), faceOffset); break;
+        case 1: setColorOnFace(dim(ORANGE, 200), faceOffset); break;
+        case 2: setColorOnFace(dim(YELLOW, 200), faceOffset); break;
+        case 3: setColorOnFace(dim(GREEN, 200), faceOffset); break;
+        case 4: setColorOnFace(dim(BLUE, 200), faceOffset); break;
+      }
+    }
+    else {
+      // display the previous round (shift the cases
+      switch (currentRound) {
+        case 0: setColorOnFace(OFF, faceOffset); break;
+        case 1: setColorOnFace(dim(RED, 200), faceOffset); break;
+        case 2: setColorOnFace(dim(ORANGE, 200), faceOffset); break;
+        case 3: setColorOnFace(dim(YELLOW, 200), faceOffset); break;
+        case 4: setColorOnFace(dim(GREEN, 200), faceOffset); break;
+        case 5: setColorOnFace(dim(BLUE, 200), faceOffset); break;
+      }
+    }
+  }
+
+}
+
+/*
+   Display the final score on the current round
+*/
+void displayForeground() {
+
+  //  if( currentRound == numberOfRounds ) { // DO NOT USE - this is still drawing the background, don't want to begin yet
+
+  byte nextRound = numberOfRounds + 1;  // since we are drawing this in our timeline after we painted the background for our current round
+
+  uint32_t timeSincePipStarted = timeSinceScoreboardBegan - (nextRound * roundDuration);  // time passed in this round
+
+  byte currentPip = timeSincePipStarted / PIP_DURATION_IN_SCORE;
+
+  if (currentPip >= numberOfPips) {
+    currentPip = numberOfPips;
+  }
+
+  if (timeSinceScoreboardBegan >= nextRound * roundDuration ) { // begins drawing after all backgrounds have been drawn
+
+    // great, lets draw the pip to its final destination
+    FOREACH_FACE(f) {
+      byte faceOffset = (f + centerFace + 2) % 6;
+
+      // only display the 3 pips in our petal
+      if (f >= 3) {
+        continue; // for the time being, let's only display on 0,1,2
+      }
+
+      uint32_t faceTime = f * PIP_DURATION_IN_SCORE; // after this amount of time has passed, draw on this pip
+      uint32_t timeToDisplayPrevPetals = PIP_DURATION_IN_SCORE * (petalID * NUM_PIP_IN_PETAL);
+
+      byte faceInEntireDisplay = f + (petalID * NUM_PIP_IN_PETAL);
+
+      if ( timeSincePipStarted > (faceTime + timeToDisplayPrevPetals) && faceInEntireDisplay <= numberOfPips) {
+        // able to display pip
+
+        // if the front pip, pulse
+        if ( faceInEntireDisplay == currentPip) {
+          // go down and up once every pip duration
+          // set the brightness based on the time passed during this pip display duration
+          byte bri = sin8_C(map(timeSincePipStarted % PIP_DURATION_IN_SCORE, 0, PIP_DURATION_IN_SCORE, 0, 255)); // time passed in this current pip converted to 0-255
+          setColorOnFace(dim(WHITE, bri), faceOffset);
+        }
+        // else stay iluminated
+        else {
+          setColorOnFace(WHITE, faceOffset);
+        }
+      }
+    }
+  }
+}
+
 
 /*
    DEBUG Display
@@ -1087,8 +1228,8 @@ void displayDebug() {
 }
 
 /*
- * Parallel Comms Data
- */
+   Parallel Comms Data
+*/
 
 byte getPieceType(byte data) {
   return (data & 1);
