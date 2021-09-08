@@ -47,7 +47,29 @@ int showTime = MAX_SHOW_TIME;
 int darkTime = MIN_DARK_TIME;
 
 Timer answerTimer; // runs the timing of displaying the answer
-#define ANSWER_DURATION 3000  // 3 seconds
+#define ANSWER_REVEAL_DURATION 3000  // 3 seconds
+
+/*
+   For Scoreboard
+   ----------------------------------------
+*/
+bool isScoreboard = false;
+
+#define PIP_IN_ROUND 18
+#define NUM_PETALS 6
+#define NUM_PIP_IN_PETAL (PIP_IN_ROUND / NUM_PETALS)
+#define PIP_DURATION_IN_ROUND 60
+#define PIP_DURATION_IN_SCORE 300
+uint16_t roundDuration = PIP_DURATION_IN_ROUND * PIP_IN_ROUND;
+byte currentRound;
+byte numberOfRounds;
+byte numberOfPips;
+
+uint32_t timeOfGameEnding;
+uint32_t timeSinceScoreboardBegan;
+
+byte petalID;
+// ----------------------------------------
 
 #define MAX_LEVEL 72
 byte currentLevel = 0;
@@ -332,7 +354,7 @@ void gameplayLoop() {
     if (areAllFaces(PUZZLE_CORRECT_RECEIVED)) {
       setAllFaces(INERT);
       gameState = ANSWER;
-      answerTimer.set(ANSWER_DURATION);
+      answerTimer.set(ANSWER_REVEAL_DURATION);
       puzzleState = CORRECT;
       // we passed this level let's increment
       currentLevel++;
@@ -342,7 +364,7 @@ void gameplayLoop() {
     if (areAllFaces(PUZZLE_WRONG_RECEIVED)) {
       setAllFaces(INERT);
       gameState = ANSWER;
-      answerTimer.set(ANSWER_DURATION);
+      answerTimer.set(ANSWER_REVEAL_DURATION);
       puzzleState = WRONG;
     }
 
@@ -401,7 +423,7 @@ void gameplayLoop() {
       if (getCommsData(getLastValueReceivedOnFace(centerFace)) == INERT) {
         faceComms[centerFace] = INERT;
         gameState = ANSWER;
-        answerTimer.set(ANSWER_DURATION);
+        answerTimer.set(ANSWER_REVEAL_DURATION);
         puzzleState = CORRECT;
       }
     }
@@ -409,7 +431,7 @@ void gameplayLoop() {
       if (getCommsData(getLastValueReceivedOnFace(centerFace)) == INERT) {
         faceComms[centerFace] = INERT;
         gameState = ANSWER;
-        answerTimer.set(ANSWER_DURATION);
+        answerTimer.set(ANSWER_REVEAL_DURATION);
         puzzleState = WRONG;
       }
     }
