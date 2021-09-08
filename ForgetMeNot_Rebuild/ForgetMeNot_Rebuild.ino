@@ -135,11 +135,11 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-//    if (slowTimer.isExpired()) {
-//      slowTimer.set(FRAME_DURATION);
+  //    if (slowTimer.isExpired()) {
+  //      slowTimer.set(FRAME_DURATION);
 
   switch (gameState) {
-
+    
     case SETUP:
       setupLoop();
       break;
@@ -173,13 +173,14 @@ void loop() {
 
   // communication
   FOREACH_FACE(f) {
-    setValueSentOnFace(faceComms[f], f);
+    byte data = ( faceComms[f] << 1 ) + ( pieceType );
+    setValueSentOnFace(data, f);
   }
 
   // dump button presses
   buttonSingleClicked();
   buttonLongPressed();
-//    }
+  //    }
 }
 
 
@@ -204,7 +205,7 @@ void setupLoop() {
 
         if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
 
-          byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
+          byte neighborVal = getCommsData(getLastValueReceivedOnFace(f)); // value received from neighbor
 
           if (neighborVal != PUZZLE_RECEIVED) { // not yet received the datagram
 
@@ -239,7 +240,7 @@ void setupLoop() {
     // stop sending the puzzle start message after it has been received
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) { // neighbor present
-        byte neighborVal = getLastValueReceivedOnFace(f); // value received from neighbor
+        byte neighborVal = getCommsData(getLastValueReceivedOnFace(f)); // value received from neighbor
         if (neighborVal == PUZZLE_START_RECEIVED) { // received the start
           faceComms[f] = INERT;
         }
@@ -287,7 +288,7 @@ void setupLoop() {
     }
 
     // listen for start puzzle
-    if ( getLastValueReceivedOnFace(centerFace) == PUZZLE_START ) {
+    if ( getCommsData(getLastValueReceivedOnFace(centerFace)) == PUZZLE_START ) {
       if (puzzleTimer.isExpired()) {
         puzzleTimer.set(getPuzzleDuration(currentLevel));
         faceComms[centerFace] = PUZZLE_START_RECEIVED;
@@ -311,7 +312,7 @@ void gameplayLoop() {
     // share result of the user selection with the group
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
-        byte neighborVal = getLastValueReceivedOnFace(f);
+        byte neighborVal = getCommsData(getLastValueReceivedOnFace(f));
         if (neighborVal == USER_SELECT) {
           faceComms[f] = USER_SELECT_RECEIVED;
           // this face was clicked on, was it correct?
@@ -387,17 +388,17 @@ void gameplayLoop() {
     }
 
     // listen for cue to go to answer state from center
-    if (getLastValueReceivedOnFace(centerFace) == PUZZLE_CORRECT) {
+    if (getCommsData(getLastValueReceivedOnFace(centerFace)) == PUZZLE_CORRECT) {
       faceComms[centerFace] = PUZZLE_CORRECT_RECEIVED;
     }
-    else if (getLastValueReceivedOnFace(centerFace) == PUZZLE_WRONG) {
+    else if (getCommsData(getLastValueReceivedOnFace(centerFace)) == PUZZLE_WRONG) {
       faceComms[centerFace] = PUZZLE_WRONG_RECEIVED;
     }
 
 
     // the center has validated that the answer was received on all faces, now go to answer loop
     if (faceComms[centerFace] == PUZZLE_CORRECT_RECEIVED) {
-      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+      if (getCommsData(getLastValueReceivedOnFace(centerFace)) == INERT) {
         faceComms[centerFace] = INERT;
         gameState = ANSWER;
         answerTimer.set(ANSWER_DURATION);
@@ -405,7 +406,7 @@ void gameplayLoop() {
       }
     }
     else if (faceComms[centerFace] == PUZZLE_WRONG_RECEIVED) {
-      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+      if (getCommsData(getLastValueReceivedOnFace(centerFace)) == INERT) {
         faceComms[centerFace] = INERT;
         gameState = ANSWER;
         answerTimer.set(ANSWER_DURATION);
@@ -520,7 +521,7 @@ void checkForReset(bool triggered) {
 
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
-        if (getLastValueReceivedOnFace(f) == USER_RESET) {
+        if (getCommsData(getLastValueReceivedOnFace(f)) == USER_RESET) {
           setAllFaces(USER_RESET);
         }
       }
@@ -549,12 +550,12 @@ void checkForReset(bool triggered) {
       faceComms[centerFace] = USER_RESET;
     }
 
-    if (getLastValueReceivedOnFace(centerFace) == USER_RESET) {
+    if (getCommsData(getLastValueReceivedOnFace(centerFace)) == USER_RESET) {
       faceComms[centerFace] = USER_RESET_RECEIVED;
     }
 
     if ( faceComms[centerFace] == USER_RESET_RECEIVED ) {
-      if (getLastValueReceivedOnFace(centerFace) == INERT) {
+      if (getCommsData(getLastValueReceivedOnFace(centerFace)) == INERT) {
         gameState = RESET;
       }
     }
@@ -724,7 +725,19 @@ byte determineStages(byte puzzType, byte puzzDiff, bool amAnswer, byte stage) {
 /*
    Look at neighbors and determine the center face
 */
+// TODO: Look into if this is too heavy and causing delay
 byte getCenterFace() {
+
+  // check to see if alone
+  if (isAlone()) {
+    centerFace = FACE_COUNT;
+  }
+
+  // no need to do this search unless we were alone
+  if (centerFace != FACE_COUNT) {
+    return centerFace;
+  }
+
   // needs 3 adjacent faces
   // middle one is the center face
   byte numNeighbors = 0;
@@ -782,11 +795,11 @@ void setAllFaces(byte val) {
 */
 bool areAllFaces(byte val) {
   FOREACH_FACE(f) {
-    if (isValueReceivedOnFaceExpired(f)) {
+    if (getCommsData(isValueReceivedOnFaceExpired(f))) {
       return false;
     }
     else {
-      if (getLastValueReceivedOnFace(f) != val) {
+      if (getCommsData(getLastValueReceivedOnFace(f)) != val) {
         return false;
       }
     }
@@ -826,6 +839,16 @@ void displayCenter() {
   else if (gameState == RESET) { // Center display during reset
     //setColor(BLUE);
   }
+
+  /*
+    Display the missing pieces from the center
+  */
+  FOREACH_FACE(f) {
+    if (isValueReceivedOnFaceExpired(f)) {
+      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
+    }
+  }
+
 }
 
 /*
@@ -854,7 +877,7 @@ void displayPetal() {
     }
     else if ( puzzleState == HIDE ) {
       setColor(OFF);
-      setColorOnFace(GREEN, centerFace);
+      setColorOnFace(dim(GREEN, 128), centerFace);
     }
     else if ( puzzleState == WAIT ) {
       displayStage( stageTwoData );
@@ -1036,4 +1059,16 @@ void displayDebug() {
     }
 
   }
+}
+
+/*
+ * Parallel Comms Data
+ */
+
+byte getPieceType(byte data) {
+  return (data & 1);
+}
+
+byte getCommsData(byte data) {
+  return ((data >> 1) & 31);
 }
