@@ -84,7 +84,7 @@ enum puzzleType {
 byte puzzleArray[MAX_LEVEL] =     {0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 2, 2, 1, 0, 2, 3, 3, 2, 0, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
 byte difficultyArray[MAX_LEVEL] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2, 3, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 
-#define COLOR_1 makeColorHSB(220,200,255)  // LIGHTPINK
+#define COLOR_1 makeColorHSB( 30,200,255)  // LIGHTPINK
 #define COLOR_2 makeColorHSB(255,200,255)  // SALMON
 #define COLOR_3 makeColorHSB(220,200,255)  // PINK
 #define COLOR_4 makeColorHSB(180,200,255)  // MAUVE
@@ -267,11 +267,11 @@ void setupLoop() {
 
     if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
 
-      if (getDatagramLengthOnFace(centerFace) == 6) {//is it the right length?
+      if (getDatagramLengthOnFace(centerFace) == sizeof(puzzleInfo)) {//is it the right length?
 
         byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
 
-        for (byte i = 0; i < 6; i++) {
+        for (byte i = 0; i < sizeof(puzzleInfo); i++) {
           puzzleInfo[i] = data[i];
         }
 
