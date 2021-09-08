@@ -734,6 +734,9 @@ byte getCenterFace() {
   }
 
   // no need to do this search unless we were alone
+  // Note: this greatly speeds up the compute time
+  // BUT, it also means that if pieces are rearranged
+  // and never alone, they can have the incorrect center face
   if (centerFace != FACE_COUNT) {
     return centerFace;
   }
