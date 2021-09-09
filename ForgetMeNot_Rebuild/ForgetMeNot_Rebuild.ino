@@ -65,8 +65,8 @@ byte currentRound;
 byte numberOfRounds;
 byte numberOfPips;
 
-uint32_t timeOfGameEnding;
-uint32_t timeSinceScoreboardBegan;
+uint32_t timeOfGameEnding = 0;
+uint32_t timeSinceScoreboardBegan = 0;
 
 byte petalID;
 // ----------------------------------------
@@ -281,7 +281,7 @@ void setupLoop() {
         pieceType = CENTER;
         startPuzzle(currentLevel);
       }
-      if(!wasCenterPossible) {
+      if (!wasCenterPossible) {
         wasCenterPossible = true;
         timeOfBloom = millis();
       }
@@ -473,6 +473,7 @@ void answerLoop() {
       else if (puzzleState == WRONG) {
         // go to scoreboard if incorrect
         gameState = SCOREBOARD;
+        timeOfGameEnding = millis();
       }
 
     }
@@ -490,6 +491,7 @@ void answerLoop() {
       else if (puzzleState == WRONG) {
         // go to scoreboard if incorrect
         gameState = SCOREBOARD;
+        timeOfGameEnding = millis();
       }
 
     }
@@ -759,6 +761,9 @@ byte determineStages(byte puzzType, byte puzzDiff, bool amAnswer, byte stage) {
    Look at neighbors and determine the center face
 */
 // TODO: Look into if this is too heavy and causing delay
+//byte getCenterFace() {
+//  return 3;
+//}
 byte getCenterFace() {
 
   // check to see if alone
@@ -848,8 +853,8 @@ bool areAllFaces(byte val) {
    ------------------------
    here we will display all of the beautiful flowers :)
 */
-#define YELLOW_HUE 77
-#define GREEN_HUE 42
+#define YELLOW_HUE 42
+#define GREEN_HUE 77
 /*
    Display Center
 */
@@ -857,18 +862,8 @@ void displayCenter() {
 
   if (gameState == SETUP) { // Center display during setup
 
-    uint32_t timeSinceBloom = millis() - timeOfBloom;
-
-    if(timeSinceBloom > 2000) {
-      setColor(YELLOW);      
-      setColorOnFace(WHITE, random(5));
-    }
-    else {
-      byte hue = GREEN_HUE + ( (YELLOW_HUE - GREEN_HUE) * timeSinceBloom ) / 2000;
-      byte bri = 100 + (155 * timeSinceBloom) / 2000;
-      setColor(makeColorHSB(hue, 255, bri));
-      setColorOnFace(dim(WHITE, bri), random(5)); 
-    }
+    setColor(YELLOW);
+    setColorOnFace(WHITE, random(5));
   }
   else if (gameState == GAMEPLAY) { // Center display during gameplay
     setColor(YELLOW);
@@ -876,10 +871,14 @@ void displayCenter() {
   else if (gameState == ANSWER) { // Center display during answer
 
     if ( puzzleState == CORRECT ) {
-      setColor(GREEN);
+//      setColor(GREEN);
+        byte hue = YELLOW_HUE + ( (GREEN_HUE - YELLOW_HUE) * answerTimer.getRemaining() ) / ANSWER_REVEAL_DURATION;
+        byte sat = (255 * answerTimer.getRemaining()) / ANSWER_REVEAL_DURATION;
+        setColor(makeColorHSB(hue, 255, 255));
+        setColorOnFace(makeColorHSB(hue, sat, 255), random(5));
     }
     else if (puzzleState == WRONG ) {
-      setColor(RED);
+      setColor(YELLOW);
     }
   }
   else if (gameState == SCOREBOARD) { // Center display during scoreboard
@@ -916,7 +915,18 @@ void displayPetal() {
     }
 
     if ( isCenterPossible() ) {
-      setColor(ORANGE);
+      uint32_t timeSinceBloom = millis() - timeOfBloom;
+
+      if (timeSinceBloom > 2000) {
+        setColor(YELLOW);
+        setColorOnFace(WHITE, random(5));
+      }
+      else {
+        byte hue = GREEN_HUE - ( (GREEN_HUE - YELLOW_HUE) * timeSinceBloom ) / 2000;
+        byte bri = 100 + (155 * timeSinceBloom) / 2000;
+        setColor(makeColorHSB(hue, 255, bri));
+        setColorOnFace(dim(WHITE, bri), random(5));
+      }
     }
   }
   else if (gameState == GAMEPLAY) { // Petal display during gameplay
@@ -935,12 +945,20 @@ void displayPetal() {
   }
   else if (gameState == ANSWER) { // Petal display during answer
     if ( puzzleState == CORRECT ) {
-      setColor(GREEN);
+      byte bri = (255 * answerTimer.getRemaining() / ANSWER_REVEAL_DURATION);
+      setColor(dim(GREEN, bri));
     }
     else if (puzzleState == WRONG ) {
-      setColor(RED);
-      if (puzzleInfo[3]) {
-        setColor(CYAN);
+      
+      if (!answerTimer.isExpired()) {
+        // display the correct piece and fade out to reveal the gameboard
+        byte bri = (255 * answerTimer.getRemaining() / ANSWER_REVEAL_DURATION);
+        if (puzzleInfo[3]) { // i was the correct answer
+          setColor(dim(GREEN, bri));  // show Green for correct
+        }
+        else {
+          setColor(dim(RED, bri)); // show Red for wrong
+        }
       }
     }
   }
@@ -948,14 +966,14 @@ void displayPetal() {
 
     petalID = puzzleInfo[5];
     setColor(OFF);
-    //displayScoreboard();  // WAY OVER MEMORY
+    displayScoreboard();  // WAY OVER MEMORY
 
     // display face IDs
-    FOREACH_FACE(f) {
-      if (f <= petalID) {
-        setColorOnFace(MAGENTA, f);
-      }
-    }
+//    FOREACH_FACE(f) {
+//      if (f <= petalID) {
+//        setColorOnFace(MAGENTA, f);
+//      }
+//    }
   }
   else if (gameState == RESET) { // Petal display during reset
     //setColor(BLUE);
@@ -1043,30 +1061,16 @@ void displayScoreboard() {
   numberOfRounds = (currentLevel) / PIP_IN_ROUND;
   numberOfPips = (currentLevel) % PIP_IN_ROUND; // CAREFUL: 0 pips means a single pip (index of 0), 5 pips means all 6 lit (index of 5)
 
-  uint32_t timeSinceGameEnded = millis() - timeOfGameEnding;
+  timeSinceScoreboardBegan = millis() - timeOfGameEnding;
 
-  if (timeSinceGameEnded < ANSWER_REVEAL_DURATION) {
-    // display the correct piece and fade out to reveal the gameboard
-    byte bri = 255 - (255 * timeSinceGameEnded / ANSWER_REVEAL_DURATION);
-    if (puzzleInfo[3]) { // i was the correct answer
-      setColor(dim(GREEN, bri));  // show Green for correct
-    }
-    else {
-      setColor(dim(RED, bri)); // show Red for wrong
-    }
+  currentRound = timeSinceScoreboardBegan / roundDuration;
+
+  if ( currentRound >= numberOfRounds ) {
+    currentRound = numberOfRounds; // cap the rounds at the score
   }
-  else {
-    timeSinceScoreboardBegan = millis() - (timeOfGameEnding + ANSWER_REVEAL_DURATION);
 
-    currentRound = timeSinceScoreboardBegan / roundDuration;
-
-    if ( currentRound >= numberOfRounds ) {
-      currentRound = numberOfRounds; // cap the rounds at the score
-    }
-
-    displayBackground();
-    displayForeground();
-  }
+  displayBackground();
+  displayForeground();
 }
 
 /*
