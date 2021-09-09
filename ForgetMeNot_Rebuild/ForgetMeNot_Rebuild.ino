@@ -6,6 +6,8 @@
 
 */
 
+char junk;
+
 enum pieceTypes {
   CENTER,
   PETAL
@@ -84,7 +86,28 @@ byte currentLevel = 0;
   4: level
   5: petalID
 */
-byte puzzleInfo[6] = {0, 0, 0, 0, 0, 0};
+
+class puzzleInfo_t {
+
+  public: 
+  byte type;
+  byte palette;
+  byte difficulty;
+  byte isAnswer;
+  byte level;
+  byte petalID;
+};
+
+puzzleInfo_t puzzleInfo;// = {0, 0, 0, 0, 0, 0};
+
+static puzzleInfo_t emptyPuzzleInfo;// = {0, 0, 0, 0, 0, 0};
+
+void clearPuzzleInfo() {
+  puzzleInfo = emptyPuzzleInfo;
+}
+
+char junk2;
+
 bool bSendPuzzle = false;
 Timer datagramTimer;
 #define DATAGRAM_TIMEOUT 1000
@@ -166,6 +189,21 @@ void setup() {
   randomize();
 }
 
+void scoreboardLoop();
+void resetLoop();
+void displayCenter();
+void displayPetal();
+void checkForReset(byte);
+void startPuzzle(byte);
+byte getCommsData(byte);
+bool areAllFaces(byte);
+void setAllFaces(byte);
+uint16_t getPuzzleDuration(byte);
+byte isCenterPossible();
+byte getCenterFace();
+byte determineStages(byte,byte,bool,byte);
+uint16_t getDarkDuration(byte);
+  
 void loop() {
   // put your main code here, to run repeatedly:
 
@@ -246,13 +284,13 @@ void setupLoop() {
             faceComms[f] = PUZZLE_AVAIL;
 
             // send the datagram
-            puzzleInfo[5] = f;  // communicate which face this is
+            puzzleInfo.petalID = f;  // communicate which face this is
 
             if (f == answerFace) {
-              puzzleInfo[3] = 1;
+              puzzleInfo.isAnswer = 1;
               sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
             } else {
-              puzzleInfo[3] = 0;
+              puzzleInfo.isAnswer = 0;
               sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
             }
 
@@ -310,21 +348,17 @@ void setupLoop() {
 
       if (getDatagramLengthOnFace(centerFace) == sizeof(puzzleInfo)) {//is it the right length?
 
-        byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
-
-        for (byte i = 0; i < sizeof(puzzleInfo); i++) {
-          puzzleInfo[i] = data[i];
-        }
+        puzzleInfo = *( (puzzleInfo_t *) getDatagramOnFace(centerFace));//grab the data
 
         markDatagramReadOnFace(centerFace);
 
         faceComms[centerFace] = PUZZLE_RECEIVED;
 
         // Parse the data
-        currentLevel = puzzleInfo[4]; // set our current puzzle level
+        currentLevel = puzzleInfo.level; // set our current puzzle level
         // create puzzle state for stage one and stage two
-        stageOneData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 1);
-        stageTwoData = determineStages(puzzleInfo[0], puzzleInfo[2], puzzleInfo[3], 2);
+        stageOneData = determineStages(puzzleInfo.type, puzzleInfo.difficulty, puzzleInfo.isAnswer, 1);
+        stageTwoData = determineStages(puzzleInfo.type, puzzleInfo.difficulty, puzzleInfo.isAnswer, 2);
       }
     }
 
@@ -475,9 +509,10 @@ void answerLoop() {
         gameState = SETUP;
         puzzleState = WAIT;
         answerFace = FACE_COUNT;
-        for (byte i = 0; i < 6; i++) { // initialize the puzzle
-          puzzleInfo[i] = 0;
-        }
+        
+        // initialize the puzzle
+        clearPuzzleInfo();
+       
       }
       else if (puzzleState == WRONG) {
         // go to scoreboard if incorrect
@@ -534,9 +569,9 @@ void resetLoop() {
   // doesn't mater if we are center or not, we all return to our initial states
   // initialize everything
   currentLevel = 0;
-  for (byte i = 0; i < 6; i++) { // initialize the puzzle
-    puzzleInfo[i] = 0;
-  }
+
+  clearPuzzleInfo();
+
   setAllFaces(INERT);
   puzzleState = WAIT;
   puzzleTimer.set(0);
@@ -551,7 +586,7 @@ void resetLoop() {
 /*
    Check for Reset
 */
-void checkForReset(bool triggered) {
+void checkForReset(byte triggered) {
   if ( pieceType == CENTER ) {
 
     if (!isCenterPossible()) { // only allow reset while configured completely
@@ -611,7 +646,7 @@ void checkForReset(bool triggered) {
 /*
    returns true if this Blink is positioned and ready to be a center
 */
-bool isCenterPossible() {
+byte isCenterPossible() {
 
   FOREACH_FACE(f) {
     if (isValueReceivedOnFaceExpired(f)) {
@@ -683,19 +718,19 @@ void createPuzzle(byte level) {
   answerFace = random(5);//which face will have the correct answer?
 
   //  lookup puzzle type
-  puzzleInfo[0] = puzzleArray[level];
+  puzzleInfo.type = puzzleArray[level];
 
   //  choose a puzzle palette
-  puzzleInfo[1] = 0;//TODO: multiple palettes
+  puzzleInfo.palette = 0;//TODO: multiple palettes
 
   //  lookup puzzle difficulty
-  puzzleInfo[2] = difficultyArray[level];
+  puzzleInfo.difficulty = difficultyArray[level];
 
   //  set whether this is the answer face or not
   //  puzzleInfo[3] = 0;
 
   //  current level
-  puzzleInfo[4] = level;
+  puzzleInfo.level = level;
 
   //  what face am I
   //  puzzleInfo[5] = 0;//this changes when I send it, default to 0 is fine
@@ -964,7 +999,7 @@ void displayPetal() {
       if (!answerTimer.isExpired()) {
         // display the correct piece and fade out to reveal the gameboard
         byte bri = (255 * answerTimer.getRemaining() / ANSWER_REVEAL_DURATION);
-        if (puzzleInfo[3]) { // i was the correct answer
+        if (puzzleInfo.isAnswer) { // i was the correct answer
           setColor(dim(GREEN, bri));  // show Green for correct
         }
         else {
@@ -975,7 +1010,7 @@ void displayPetal() {
   }
   else if (gameState == SCOREBOARD) { // Petal display during scoreboard
 
-    petalID = puzzleInfo[5];
+    petalID = puzzleInfo.petalID;
     setColor(OFF);
     displayScoreboard();  // WAY OVER MEMORY
 
@@ -996,7 +1031,7 @@ void displayPetal() {
 */
 void displayStage( byte stageData ) {
 
-  switch (puzzleInfo[0]) {
+  switch (puzzleInfo.type) {
 
     case COLOR_PETALS:
       setColor(petalColors[stageData]);
@@ -1097,7 +1132,7 @@ void displayBackground() {
     byte faceOffset = normalizeFace(f + centerFace + 2);
 
     if ( f == centerFace ) { // draw face touching the center
-      if (puzzleInfo[3]) { //i was the correct answer
+      if (puzzleInfo.isAnswer) { //i was the correct answer
         setColorOnFace(dim(GREEN, sin8_C(millis() / 4)), f); //pulse leaf
       }
       else {
