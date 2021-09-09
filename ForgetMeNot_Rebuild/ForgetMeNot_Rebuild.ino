@@ -152,6 +152,15 @@ byte faceComms[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
 Timer slowTimer;
 #define FRAME_DURATION 200
 
+// Bring f into range 0-facecount
+
+byte normalizeFace( byte f) {
+  while (f>FACE_COUNT) {
+    f-=FACE_COUNT;  
+  };
+  return f;
+}
+
 void setup() {
   // put your setup code here, to run once:
   randomize();
@@ -710,9 +719,9 @@ byte determineStages(byte puzzType, byte puzzDiff, bool amAnswer, byte stage) {
       byte exterior = 0;
       bool goRight = random(1);
       if (goRight) {
-        exterior = (interior + distance) % 6;
+        exterior = normalizeFace(interior + distance);
       } else {
-        exterior = (interior + 6 - distance) % 6;
+        exterior = normalizeFace(interior + 6 - distance);
       }
       return ((interior * 10) + exterior);
     } else if (puzzType == ROTATION_PETALS) {
@@ -745,9 +754,9 @@ byte determineStages(byte puzzType, byte puzzDiff, bool amAnswer, byte stage) {
         byte distance = 5 - puzzDiff;
         bool goRight = random(1);
         if (goRight) {
-          return ((stageOneData + distance) % 6);
+          return normalizeFace(stageOneData + distance);
         } else {
-          return ((stageOneData + 6 - distance) % 6);
+          return normalizeFace(stageOneData + 6 - distance);
         }
       }
     } else {//if you are not the answer, just return the stage one data
@@ -874,6 +883,7 @@ void displayCenter() {
 //      setColor(GREEN);
         byte hue = YELLOW_HUE + ( (GREEN_HUE - YELLOW_HUE) * answerTimer.getRemaining() ) / ANSWER_REVEAL_DURATION;
         byte sat = (255 * answerTimer.getRemaining()) / ANSWER_REVEAL_DURATION;
+
         setColor(makeColorHSB(hue, 255, 255));
         setColorOnFace(makeColorHSB(hue, sat, 255), random(5));
     }
@@ -924,7 +934,11 @@ void displayPetal() {
       else {
         byte hue = GREEN_HUE - ( (GREEN_HUE - YELLOW_HUE) * timeSinceBloom ) / 2000;
         byte bri = 100 + (155 * timeSinceBloom) / 2000;
+
+        #warning
+        /*
         setColor(makeColorHSB(hue, 255, bri));
+        */
         setColorOnFace(dim(WHITE, bri), random(5));
       }
     }
@@ -1025,9 +1039,9 @@ void displayLocationPetal(byte dir) {
 void displayDuoPetal(byte interior, byte exterior) {
   setColor(petalColors[interior]);//setting the interior color
 
-  setColorOnFace(petalColors[exterior], (centerFace + 2) % 6);
-  setColorOnFace(petalColors[exterior], (centerFace + 3) % 6);
-  setColorOnFace(petalColors[exterior], (centerFace + 4) % 6);
+  setColorOnFace( petalColors[exterior], normalizeFace(centerFace + 2));
+  setColorOnFace(petalColors[exterior], normalizeFace(centerFace + 3));
+  setColorOnFace(petalColors[exterior], normalizeFace(centerFace + 4));
 }
 
 /*
@@ -1041,9 +1055,9 @@ void displayRotationPetal(bool isCW) {
     rotationTimer.set(ROTATION_RATE);
 
     if (isCW) { // CW Rotation
-      rotationFace = (rotationFace + 1) % 6;
+      rotationFace = normalizeFace(rotationFace + 1);
     } else {  // CCW Rotation
-      rotationFace = (rotationFace + 5) % 6;
+      rotationFace = normalizeFace(rotationFace + 5);
     }
     rotationBri[rotationFace] = 255;
   }
@@ -1083,7 +1097,7 @@ void displayBackground() {
 
   // display background color on face based on how much time has passed
   FOREACH_FACE(f) {
-    byte faceOffset = (f + centerFace + 2) % 6;
+    byte faceOffset = normalizeFace(f + centerFace + 2);
 
     if ( f == centerFace ) { // draw face touching the center
       if (puzzleInfo[3]) { //i was the correct answer
@@ -1148,7 +1162,7 @@ void displayForeground() {
 
     // great, lets draw the pip to its final destination
     FOREACH_FACE(f) {
-      byte faceOffset = (f + centerFace + 2) % 6;
+      byte faceOffset = normalizeFace(f + centerFace + 2);
 
       // only display the 3 pips in our petal
       if (f >= 3) {
@@ -1246,7 +1260,7 @@ void displayDebug() {
     if (gameState == SETUP) {
       setColor(BLUE);
       FOREACH_FACE(f) {
-        if (f < currentLevel % 6) {
+        if (f < normalizeFace(currentLevel)) {
           setColorOnFace(ORANGE, f);
         }
       }
