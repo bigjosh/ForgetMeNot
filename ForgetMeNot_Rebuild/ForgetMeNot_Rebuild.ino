@@ -966,8 +966,8 @@ void displayPetal() {
          
         word timeSinceBloom = BLOOM_TIME_MS - bloomTimer.getRemaining();
         
-        byte hue = GREEN_HUE - ( (GREEN_HUE - YELLOW_HUE) * timeSinceBloom ) / 2000;
-        byte bri = 100 + (155 * timeSinceBloom) / 2000;
+        byte hue = GREEN_HUE - ( (GREEN_HUE - YELLOW_HUE) * timeSinceBloom ) / BLOOM_TIME_MS;
+        byte bri = 100 + (155 * timeSinceBloom) / BLOOM_TIME_MS;
         setColor(makeColorHSB(hue, 255, bri));
         setColorOnFace(dim(WHITE, bri), random(5));
         
