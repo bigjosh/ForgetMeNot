@@ -136,7 +136,7 @@ byte difficultyArray[MAX_LEVEL] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 
 #define COLOR_5 makeColorHSB(150,200,255)  // INDIGO
 #define COLOR_6 makeColorHSB(120, 50,255)  // PERIWINKLE/WHITE
 
-Color petalColors[6] = {COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5, COLOR_6};
+const Color petalColors[6] = {COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5, COLOR_6};
 
 byte rotationBri[6] = {0, 0, 0, 0, 0, 0};
 byte rotationFace = 0;
@@ -290,12 +290,11 @@ void setupLoop() {
 
             if (f == answerFace) {
               puzzleInfo.isAnswer = 1;
-              sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
             } else {
               puzzleInfo.isAnswer = 0;
-              sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
             }
-
+            sendDatagramOnFace( &puzzleInfo, sizeof(puzzleInfo), f);
+            
           }
         }
       }
