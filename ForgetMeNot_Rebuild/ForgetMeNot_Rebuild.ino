@@ -143,7 +143,9 @@ byte rotationFace = 0;
 Timer rotationTimer;
 #define ROTATION_RATE 100
 
-uint32_t timeOfBloom = 0;
+Timer bloomTimer;
+#define BLOOM_TIME_MS 2000      // Make ((even power of two) - 1) for division efficency
+
 bool wasCenterPossible = false;
 
 byte stageOneData = 0;
@@ -330,7 +332,7 @@ void setupLoop() {
       }
       if (!wasCenterPossible) {
         wasCenterPossible = true;
-        timeOfBloom = millis();
+        bloomTimer.set(BLOOM_TIME_MS);     // Bloom time
       }
     }
     else {
@@ -959,23 +961,19 @@ void displayPetal() {
       setColor(GREEN);
     }
 
-    if ( isCenterPossible() ) {
-      uint32_t timeSinceBloom = millis() - timeOfBloom;
-
-      if (timeSinceBloom > 2000) {
-        setColor(YELLOW);
-        setColorOnFace(WHITE, random(5));
-      }
-      else {
+  
+     if ( isCenterPossible() ) {
+         
+        word timeSinceBloom = BLOOM_TIME_MS - bloomTimer.getRemaining();
+        
         byte hue = GREEN_HUE - ( (GREEN_HUE - YELLOW_HUE) * timeSinceBloom ) / 2000;
         byte bri = 100 + (155 * timeSinceBloom) / 2000;
-
         setColor(makeColorHSB(hue, 255, bri));
         setColorOnFace(dim(WHITE, bri), random(5));
-      }
-    }
-  }
-  else if (gameState == GAMEPLAY) { // Petal display during gameplay
+        
+     }
+      
+  } else if (gameState == GAMEPLAY) { // Petal display during gameplay
 
     if ( puzzleState == SHOW ) {
       displayStage( stageOneData );
@@ -1071,7 +1069,7 @@ void displayLocationPetal(byte dir) {
 void displayDuoPetal(byte interior, byte exterior) {
   setColor(petalColors[interior]);//setting the interior color
 
-  setColorOnFace( petalColors[exterior], normalizeFace(centerFace + 2));
+  setColorOnFace(petalColors[exterior], normalizeFace(centerFace + 2));
   setColorOnFace(petalColors[exterior], normalizeFace(centerFace + 3));
   setColorOnFace(petalColors[exterior], normalizeFace(centerFace + 4));
 }
