@@ -940,7 +940,7 @@ void displayCenter() {
   */
   FOREACH_FACE(f) {
     if (isValueReceivedOnFaceExpired(f)) {
-      setColorOnFace(dim(RED, sin8_C(millis() / 3)), f);
+      setColorOnFace(dim(RED, sin8_C( ((word) (millis() &  0x2ff)) / 3)), f);
     }
   }
 
