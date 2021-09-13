@@ -155,7 +155,7 @@ Timer slowTimer;
 // Bring f into range 0-facecount
 
 byte normalizeFace( byte f) {
-  while (f>FACE_COUNT) {
+  while (f>=FACE_COUNT) {
     f-=FACE_COUNT;  
   };
   return f;
